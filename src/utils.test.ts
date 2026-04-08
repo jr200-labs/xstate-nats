@@ -19,6 +19,11 @@ describe('Pair', () => {
     expect(pair.y).toBe('456')
   })
 
+  it('should throw on invalid key format', () => {
+    expect(() => Pair.fromKey('invalid')).toThrow('Invalid Pair key format: invalid')
+    expect(() => Pair.fromKey('Pair(only_one)')).toThrow('Invalid Pair key format')
+  })
+
   it('should check equality correctly', () => {
     const pair1 = new Pair('a', 'b')
     const pair2 = new Pair('a', 'b')

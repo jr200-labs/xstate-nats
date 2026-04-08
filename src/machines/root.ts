@@ -4,6 +4,7 @@ import { kvManagerLogic, ExternalEvents as KvExternalEvents } from './kv'
 import { subjectManagerLogic, ExternalEvents as SubjectExternalEvents } from './subject'
 import { connectToNats, disconnectNats } from '../actions/connection'
 import { type AuthConfig } from '../actions/types'
+import { InternalStatusEvents as NatsStatusEvents } from '../actions/connection'
 
 export interface NatsConnectionConfig {
   opts: ConnectionOptions
@@ -27,6 +28,7 @@ type InternalEvents =
   | { type: 'FAIL'; error: Error }
   | { type: 'RECONNECT' }
   | { type: 'CLOSE' }
+  | NatsStatusEvents
 
 // events which can be sent to the machine from the user
 export type ExternalEvents =
@@ -46,19 +48,19 @@ export const natsMachine = setup({
   },
   actions: {
     doReset: assign({
-      natsConfig: _ => undefined,
-      connection: _ => null,
-      error: _ => undefined,
-      retries: _ => 0,
-      subjectManagerReady: _ => false,
-      kvManagerReady: _ => false,
+      natsConfig: (_) => undefined,
+      connection: (_) => null,
+      error: (_) => undefined,
+      retries: (_) => 0,
+      subjectManagerReady: (_) => false,
+      kvManagerReady: (_) => false,
     }),
   },
   guards: {
     allManagersReady: ({ context }) => {
       const hasValidConnection = context.connection !== null
       const subjectReady = context.subjectManagerReady
-      const kvReady = context.kvManagerReady || true
+      const kvReady = context.kvManagerReady
       return hasValidConnection && subjectReady && kvReady
     },
   },
@@ -83,6 +85,15 @@ export const natsMachine = setup({
     { src: 'subject', id: 'subject', systemId: 'subject' },
     { src: 'kv', id: 'kv' },
   ],
+  on: {
+    'NATS_CONNECTION.*': {
+      actions: [
+        ({ event }: { event: any }) => {
+          console.log('root received NATS status event', event)
+        },
+      ],
+    },
+  },
   states: {
     not_configured: {
       on: {
@@ -93,6 +104,13 @@ export const natsMachine = setup({
               natsConfig: ({ event }) => event.config,
             }),
           ],
+          '*': {
+            actions: [
+              ({ event }: { event: any }) => {
+                console.error('root not_configured received unexpected event', event)
+              },
+            ],
+          },
         },
       },
     },
@@ -105,19 +123,29 @@ export const natsMachine = setup({
           target: 'not_configured',
           actions: ['doReset'],
         },
+        '*': {
+          actions: [
+            ({ event }: { event: any }) => {
+              console.error('root configured received unexpected event', event)
+            },
+          ],
+        },
       },
     },
     connecting: {
       invoke: [
         {
           src: 'connectToNats',
-          input: ({ context }) => ({ opts: context.natsConfig!.opts, auth: context.natsConfig!.auth }),
+          input: ({ context }) => ({
+            opts: context.natsConfig!.opts,
+            auth: context.natsConfig!.auth,
+          }),
           onDone: {
             target: 'initialise_managers',
             actions: [
               assign({
                 connection: ({ event }) => event.output,
-                retries: _ => 0,
+                retries: (_) => 0,
               }),
             ],
           },
@@ -133,17 +161,18 @@ export const natsMachine = setup({
     },
     initialise_managers: {
       entry: [
-        sendTo('subject', ({ context }) => ({ type: 'SUBJECT.SYNC', connection: context.connection! })),
-        sendTo('kv', ({ context }) => ({ type: 'KV.SYNC', connection: context.connection! })),
+        sendTo('subject', ({ context }) => ({
+          type: 'SUBJECT.CONNECT',
+          connection: context.connection!,
+        })),
+        sendTo('kv', ({ context }) => ({ type: 'KV.CONNECT', connection: context.connection! })),
       ],
       on: {
         'SUBJECT.CONNECTED': {
-          actions: [assign({ subjectManagerReady: _ => true })],
+          actions: [assign({ subjectManagerReady: (_) => true })],
         },
         'KV.CONNECTED': {
-          actions: assign({
-            kvManagerReady: _ => true,
-          }),
+          actions: [assign({ kvManagerReady: (_) => true })],
         },
       },
       always: [
@@ -155,7 +184,7 @@ export const natsMachine = setup({
     },
     connected: {
       entry: [
-        event => {
+        (event) => {
           console.log('CONNECTED', event.context.connection?.getServer())
         },
       ],
@@ -168,23 +197,39 @@ export const natsMachine = setup({
         },
         'SUBJECT.*': {
           actions: [
-            sendTo('subject', ({ event, context }: { event: SubjectExternalEvents; context: Context }) => {
-              return { ...event, connection: context.connection }
-            }),
+            ({ event }: any) => {
+              console.log('xstat-nats forwarding subject event', event)
+            },
+            sendTo(
+              'subject',
+              ({ event, context }: { event: SubjectExternalEvents; context: Context }) => {
+                return { ...event, connection: context.connection }
+              },
+            ),
           ],
         },
         'KV.*': {
           actions: [
+            ({ event }: any) => {
+              console.log('xstat-nats forwarding kv event', event)
+            },
             sendTo('kv', ({ event, context }: { event: KvExternalEvents; context: Context }) => {
               return { ...event, connection: context.connection }
             }),
+          ],
+        },
+        '*': {
+          actions: [
+            ({ event }: { event: any }) => {
+              console.error('root connected received unexpected event', event)
+            },
           ],
         },
       },
     },
     closing: {
       entry: [
-        event => {
+        (event) => {
           console.log('CLOSING', event.context.connection?.getServer())
         },
         sendTo('subject', { type: 'SUBJECT.DISCONNECTED' }),
@@ -214,6 +259,13 @@ export const natsMachine = setup({
           target: 'connecting',
         },
       },
+      '*': {
+        actions: [
+          ({ event }: { event: any }) => {
+            console.error('root closing received unexpected event', event)
+          },
+        ],
+      },
     },
     error: {
       on: {
@@ -221,6 +273,13 @@ export const natsMachine = setup({
           target: 'not_configured',
           actions: ['doReset'],
         },
+      },
+      '*': {
+        actions: [
+          ({ event }: { event: any }) => {
+            console.error('root error received unexpected event', event)
+          },
+        ],
       },
     },
   },

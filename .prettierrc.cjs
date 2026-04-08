@@ -1,10 +1,8 @@
 module.exports = {
-  plugins: [],
-  arrowParens: 'avoid',
-  trailingComma: 'es5',
+  arrowParens: 'always',
+  trailingComma: 'all',
   tabWidth: 2,
-  printWidth: 120,
+  printWidth: 100,
   semi: false,
   singleQuote: true,
-  jsxSingleQuote: true,
 }

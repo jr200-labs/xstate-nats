@@ -9,7 +9,7 @@ import yaml from 'js-yaml'
 export const MachineExample = () => {
   const [state, send, actor] = useActor(natsMachine)
   const [subjectInput, setSubjectInput] = useState('test.hello')
-  const [receivedMessages, setReceivedMessages] = useState<any[]>([])
+  const [allMessages, setAllMessages] = useState<any[]>([])
 
   // Fix: Use useSelector to properly subscribe to child actor state changes
   const subjectRef = useSelector(actor, state => state.children.subject)
@@ -19,16 +19,11 @@ export const MachineExample = () => {
 
   // Request-reply state
   const [requestPayload, setRequestPayload] = useState('{"message": "Hello, NATS!"}')
-  const [requestReplies, setRequestReplies] = useState<any[]>([])
-
-  // Publish state
-  const [publishResults, setPublishResults] = useState<any[]>([])
 
   // KV state
   const [kvBucket, setKvBucket] = useState('test-bucket')
   const [kvKey, setKvKey] = useState('test-key')
   const [kvValue, setKvValue] = useState('{"message": "Hello, NATS KV!"}')
-  const [kvResults, setKvResults] = useState<any[]>([])
 
   // Extract active subscriptions and received messages with better error handling
   const activeSubscriptions = subjectState?.context?.subscriptionConfigs
@@ -53,11 +48,12 @@ export const MachineExample = () => {
       const currentSubject = subjectInput.trim()
       send({
         type: 'SUBJECT.SUBSCRIBE',
-        subjectConfig: {
+        config: {
           subject: currentSubject,
           callback: data => {
-            setReceivedMessages(prevMessages => [
+            setAllMessages(prevMessages => [
               {
+                type: 'SUBSCRIPTION',
                 subject: currentSubject,
                 payload: data,
                 timestamp: Date.now(),
@@ -78,14 +74,15 @@ export const MachineExample = () => {
           subject: subjectInput.trim(),
           payload: requestPayload,
           callback: (reply: any) => {
-            setRequestReplies(prevReplies => [
+            setAllMessages(prevMessages => [
               {
+                type: 'REQUEST_REPLY',
                 subject: subjectInput.trim(),
                 request: requestPayload,
                 reply,
                 timestamp: Date.now(),
               },
-              ...prevReplies,
+              ...prevMessages,
             ])
           },
         })
@@ -104,14 +101,15 @@ export const MachineExample = () => {
           subject: subjectInput.trim(),
           payload: requestPayload,
           onPublishResult: (result: { ok: true } | { ok: false; error: Error }) => {
-            setPublishResults(prevResults => [
+            setAllMessages(prevMessages => [
               {
+                type: 'PUBLISH',
                 subject: subjectInput.trim(),
                 payload: requestPayload,
                 result,
                 timestamp: Date.now(),
               },
-              ...prevResults,
+              ...prevMessages,
             ])
           },
         })
@@ -134,9 +132,7 @@ export const MachineExample = () => {
   }
 
   const handleClearAllMessages = () => {
-    setRequestReplies([])
-    setReceivedMessages([])
-    setPublishResults([])
+    setAllMessages([])
   }
 
   const handleKvPut = () => {
@@ -148,15 +144,16 @@ export const MachineExample = () => {
           key: kvKey.trim(),
           value: kvValue.trim(),
           onResult: (result: { ok: true } | { ok: false } | { error: Error }) => {
-            setKvResults(prevResults => [
+            setAllMessages(prevMessages => [
               {
-                operation: 'KV.PUT',
+                type: 'KV_PUT',
                 bucket: kvBucket.trim(),
-                result: kvKey.trim(),
-                value: result,
+                key: kvKey.trim(),
+                value: kvValue.trim(),
+                result,
                 timestamp: Date.now(),
               },
-              ...prevResults,
+              ...prevMessages,
             ])
           },
         })
@@ -179,29 +176,30 @@ export const MachineExample = () => {
           }
 
           if ('error' in result) {
-            setKvResults(prevResults => [
+            setAllMessages(prevMessages => [
               {
-                operation: 'KV.GET',
+                type: 'KV_GET',
                 bucket: kvBucket.trim(),
-                value: kvKey.trim(),
+                key: kvKey.trim(),
                 result: { error: result.error },
                 timestamp: Date.now(),
               },
-              ...prevResults,
+              ...prevMessages,
             ])
             return
           }
 
           const data = parseNatsResult(result)
-          setKvResults(prevResults => [
+          setAllMessages(prevMessages => [
             {
-              operation: 'KV.GET',
+              type: 'KV_GET',
               bucket: result.bucket,
+              key: result.key,
               value: data,
-              result: result.key,
+              result: { ok: true },
               timestamp: Date.now(),
             },
-            ...prevResults,
+            ...prevMessages,
           ])
         },
       })
@@ -215,15 +213,15 @@ export const MachineExample = () => {
         bucket: kvBucket.trim(),
         key: kvKey.trim(),
         onResult: (result: { ok: true } | { ok: false } | { error: Error }) => {
-          setKvResults(prevResults => [
+          setAllMessages(prevMessages => [
             {
-              operation: 'KV.DELETE',
+              type: 'KV_DELETE',
               bucket: kvBucket.trim(),
-              value: kvKey.trim(),
-              result: result,
+              key: kvKey.trim(),
+              result,
               timestamp: Date.now(),
             },
-            ...prevResults,
+            ...prevMessages,
           ])
         },
       })
@@ -236,15 +234,14 @@ export const MachineExample = () => {
         type: 'KV.BUCKET_CREATE',
         bucket: kvBucket.trim(),
         onResult: (result: { ok: true } | { ok: false } | { error: Error }) => {
-          setKvResults(prevResults => [
+          setAllMessages(prevMessages => [
             {
-              operation: 'KV.BUCKET_CREATE',
+              type: 'KV_BUCKET_CREATE',
               bucket: kvBucket.trim(),
-              value: kvKey.trim(),
-              result: result,
+              result,
               timestamp: Date.now(),
             },
-            ...prevResults,
+            ...prevMessages,
           ])
         },
       })
@@ -257,15 +254,14 @@ export const MachineExample = () => {
         type: 'KV.BUCKET_DELETE',
         bucket: kvBucket.trim(),
         onResult: (result: { ok: true } | { ok: false } | { error: Error }) => {
-          setKvResults(prevResults => [
+          setAllMessages(prevMessages => [
             {
-              operation: 'KV.BUCKET_DELETE',
+              type: 'KV_BUCKET_DELETE',
               bucket: kvBucket.trim(),
-              value: kvKey.trim(),
-              result: result,
+              result,
               timestamp: Date.now(),
             },
-            ...prevResults,
+            ...prevMessages,
           ])
         },
       })
@@ -278,15 +274,13 @@ export const MachineExample = () => {
       onResult: (result: KvStatus[] | string[] | { error: Error }) => {
         // Check if result is an error object first
         if ('error' in result) {
-          setKvResults(prevResults => [
+          setAllMessages(prevMessages => [
             {
-              operation: 'KV.BUCKET_LIST',
-              bucket: '',
+              type: 'KV_BUCKET_LIST',
               result: { error: result.error },
-              value: '',
               timestamp: Date.now(),
             },
-            ...prevResults,
+            ...prevMessages,
           ])
           return
         }
@@ -295,15 +289,14 @@ export const MachineExample = () => {
         const newItems = result.map((item: KvStatus | string) => {
           if (typeof item === 'string') {
             return {
-              operation: 'KV.BUCKET_LIST',
+              type: 'KV_BUCKET_LIST',
               bucket: item,
               result: { ok: true },
-              value: undefined,
               timestamp: Date.now(),
             }
           } else {
             return {
-              operation: 'KV.BUCKET_LIST',
+              type: 'KV_BUCKET_LIST',
               bucket: item.bucket,
               result: { ok: true },
               value: {
@@ -316,13 +309,9 @@ export const MachineExample = () => {
           }
         })
 
-        setKvResults(prevResults => [...newItems, ...prevResults])
+        setAllMessages(prevMessages => [...newItems, ...prevMessages])
       },
     })
-  }
-
-  const handleClearKvResults = () => {
-    setKvResults([])
   }
 
   const handleKvSubscribe = () => {
@@ -336,16 +325,16 @@ export const MachineExample = () => {
           bucket,
           key,
           callback: (data: any) => {
-            setKvResults(prevResults => [
+            setAllMessages(prevMessages => [
               {
-                operation: 'KV_SUBSCRIPTION',
+                type: 'KV_SUBSCRIPTION',
                 bucket,
                 key,
-                result: { ok: true },
                 value: data,
+                result: { ok: true },
                 timestamp: Date.now(),
               },
-              ...prevResults,
+              ...prevMessages,
             ])
           },
         },
@@ -391,9 +380,6 @@ export const MachineExample = () => {
         <div className='mb-8'>
           {/* Canvas at the top */}
           <div className='flex justify-center gap-4 bg-white rounded-xl shadow-lg p-4 border border-gray-200'>
-            <div className='min-w-96 bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm overflow-auto max-h-64'>
-              <pre>{state.value}</pre>
-            </div>
             <button
               onClick={handleConfigure}
               disabled={!state.can({ type: 'CONFIGURE', config: { opts: {}, maxRetries: 0 } })}
@@ -488,137 +474,169 @@ export const MachineExample = () => {
 
             {/* Messages */}
             <div>
-              <h3 className='text-lg font-semibold text-gray-800 mb-3'>Messages</h3>
-              {receivedMessages.length === 0 &&
-              requestReplies.length === 0 &&
-              publishResults.length === 0 &&
-              kvResults.length === 0 ? (
+              <div className='flex items-center justify-between mb-3'>
+                <h3 className='text-lg font-semibold text-gray-800'>All Messages</h3>
+                <button
+                  onClick={handleClearAllMessages}
+                  disabled={allMessages.length === 0}
+                  className='bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-1 px-3 rounded text-sm transition-colors duration-200'
+                >
+                  Clear Messages
+                </button>
+              </div>
+              {allMessages.length === 0 ? (
                 <div className='text-gray-500 text-center py-8'>No messages</div>
               ) : (
                 <div className='space-y-4 max-h-96 overflow-auto'>
-                  {/* Subscription Received Messages */}
-                  {receivedMessages.map((message, index) => (
-                    <div key={`subscription-${index}`} className='bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg'>
-                      <div className='flex items-center justify-between mb-3'>
-                        <div className='flex items-center gap-2'>
-                          <span className='font-mono text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded'>
-                            {message.subject}
-                          </span>
-                          <span className='text-xs text-blue-600 bg-blue-200 px-2 py-1 rounded font-medium'>
-                            SUBSCRIPTION
-                          </span>
-                        </div>
-                        <span className='text-xs text-gray-500'>
-                          {new Date(message.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <div>
-                        <h4 className='text-sm font-semibold text-gray-700 mb-2'>Message:</h4>
-                        <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
-                          {typeof message.payload === 'string'
-                            ? message.payload
-                            : JSON.stringify(message.payload, null, 2)}
-                        </pre>
-                      </div>
-                    </div>
-                  ))}
+                  {allMessages.map((message, index) => {
+                    const getMessageStyle = (type: string) => {
+                      switch (type) {
+                        case 'SUBSCRIPTION':
+                          return 'bg-blue-50 border-l-4 border-blue-400'
+                        case 'REQUEST_REPLY':
+                          return 'bg-purple-50 border-l-4 border-purple-400'
+                        case 'PUBLISH':
+                          return 'bg-green-50 border-l-4 border-green-400'
+                        default:
+                          return 'bg-indigo-50 border-l-4 border-indigo-400'
+                      }
+                    }
 
-                  {/* Request-Reply Results */}
-                  {requestReplies.map((result, index) => (
-                    <div key={`request-${index}`} className='bg-purple-50 border-l-4 border-purple-400 p-4 rounded-lg'>
-                      <div className='flex items-center justify-between mb-3'>
-                        <div className='flex items-center gap-2'>
-                          <span className='font-mono text-sm text-purple-600 bg-purple-100 px-2 py-1 rounded'>
-                            {result.subject}
-                          </span>
-                          <span className='text-xs text-purple-600 bg-purple-200 px-2 py-1 rounded font-medium'>
-                            REQUEST-REPLY
-                          </span>
-                        </div>
-                        <span className='text-xs text-gray-500'>{new Date(result.timestamp).toLocaleTimeString()}</span>
-                      </div>
-                      <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                        <div>
-                          <h4 className='text-sm font-semibold text-gray-700 mb-2'>Request:</h4>
-                          <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
-                            {JSON.stringify(result.request, null, 2)}
-                          </pre>
-                        </div>
-                        <div>
-                          <h4 className='text-sm font-semibold text-gray-700 mb-2'>Reply:</h4>
-                          <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
-                            {typeof result.reply === 'string' ? result.reply : JSON.stringify(result.reply, null, 2)}
-                          </pre>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    const getTypeLabel = (type: string) => {
+                      switch (type) {
+                        case 'SUBSCRIPTION':
+                          return 'SUBSCRIPTION'
+                        case 'REQUEST_REPLY':
+                          return 'REQUEST-REPLY'
+                        case 'PUBLISH':
+                          return 'PUBLISH'
+                        case 'KV_PUT':
+                          return 'KV PUT'
+                        case 'KV_GET':
+                          return 'KV GET'
+                        case 'KV_DELETE':
+                          return 'KV DELETE'
+                        case 'KV_BUCKET_CREATE':
+                          return 'KV BUCKET CREATE'
+                        case 'KV_BUCKET_DELETE':
+                          return 'KV BUCKET DELETE'
+                        case 'KV_BUCKET_LIST':
+                          return 'KV BUCKET LIST'
+                        case 'KV_SUBSCRIPTION':
+                          return 'KV SUBSCRIPTION'
+                        default:
+                          return type
+                      }
+                    }
 
-                  {/* Publish Results */}
-                  {publishResults.map((result, index) => (
-                    <div key={`publish-${index}`} className='bg-green-50 border-l-4 border-green-400 p-4 rounded-lg'>
-                      <div className='flex items-center justify-between mb-3'>
-                        <div className='flex items-center gap-2'>
-                          <span className='font-mono text-sm text-green-600 bg-green-100 px-2 py-1 rounded'>
-                            {result.subject}
-                          </span>
-                          <span className='text-xs text-green-600 bg-green-200 px-2 py-1 rounded font-medium'>
-                            PUBLISH
-                          </span>
-                        </div>
-                        <span className='text-xs text-gray-500'>{new Date(result.timestamp).toLocaleTimeString()}</span>
-                      </div>
-                      <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                        <div>
-                          <h4 className='text-sm font-semibold text-gray-700 mb-2'>Payload:</h4>
-                          <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
-                            {JSON.stringify(result.payload, null, 2)}
-                          </pre>
-                        </div>
-                        <div>
-                          <h4 className='text-sm font-semibold text-gray-700 mb-2'>Result:</h4>
-                          <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
-                            {result.result.ok ? (
-                              <span className='text-green-600'>✓ Published successfully</span>
-                            ) : (
-                              <span className='text-red-600'>✗ Error: {result.result.error?.message}</span>
+                    const getTypeColor = (type: string) => {
+                      switch (type) {
+                        case 'SUBSCRIPTION':
+                          return 'text-blue-600 bg-blue-100'
+                        case 'REQUEST_REPLY':
+                          return 'text-purple-600 bg-purple-100'
+                        case 'PUBLISH':
+                          return 'text-green-600 bg-green-100'
+                        default:
+                          return 'text-indigo-600 bg-indigo-100'
+                      }
+                    }
+
+                    return (
+                      <div key={`message-${index}`} className={`${getMessageStyle(message.type)} p-4 rounded-lg`}>
+                        <div className='flex items-center justify-between mb-3'>
+                          <div className='flex items-center gap-2'>
+                            {message.subject && (
+                              <span className='font-mono text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded'>
+                                {message.subject}
+                              </span>
                             )}
-                          </pre>
+                            {message.bucket && (
+                              <span className='font-mono text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded'>
+                                {message.bucket}
+                                {message.key ? ` / ${message.key}` : ''}
+                              </span>
+                            )}
+                            <span className={`text-xs px-2 py-1 rounded font-medium ${getTypeColor(message.type)}`}>
+                              {getTypeLabel(message.type)}
+                            </span>
+                          </div>
+                          <span className='text-xs text-gray-500'>
+                            {new Date(message.timestamp).toLocaleTimeString()}
+                          </span>
                         </div>
-                      </div>
-                    </div>
-                  ))}
 
-                  {/* KV Results */}
-                  {kvResults.map((result, index) => (
-                    <div key={`kv-${index}`} className='bg-indigo-50 border-l-4 border-indigo-400 p-4 rounded-lg'>
-                      <div className='flex items-center justify-between mb-2'>
-                        <div className='flex items-center gap-2'>
-                          <span className='font-mono text-sm text-indigo-600 bg-indigo-100 px-2 py-1 rounded'>
-                            {result.operation}
-                          </span>
-                          <span className='font-mono text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded'>
-                            {result.bucket}
-                            {result.key ? ` / ${result.key}` : ''}
-                          </span>
-                        </div>
-                        <span className='text-xs text-gray-500'>{new Date(result.timestamp).toLocaleTimeString()}</span>
-                      </div>
-                      <div>
-                        <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
-                          {JSON.stringify(result.result, null, 2)}
-                        </pre>
-                        {result.value && (
-                          <>
-                            <div className='text-xs text-gray-500 mt-1'>Value:</div>
+                        {/* Message content based on type */}
+                        {message.type === 'SUBSCRIPTION' && (
+                          <div>
+                            <h4 className='text-sm font-semibold text-gray-700 mb-2'>Message:</h4>
                             <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
-                              {JSON.stringify(result.value, null, 2)}
+                              {typeof message.payload === 'string'
+                                ? message.payload
+                                : JSON.stringify(message.payload, null, 2)}
                             </pre>
-                          </>
+                          </div>
+                        )}
+
+                        {message.type === 'REQUEST_REPLY' && (
+                          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                            <div>
+                              <h4 className='text-sm font-semibold text-gray-700 mb-2'>Request:</h4>
+                              <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
+                                {JSON.stringify(message.request, null, 2)}
+                              </pre>
+                            </div>
+                            <div>
+                              <h4 className='text-sm font-semibold text-gray-700 mb-2'>Reply:</h4>
+                              <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
+                                {typeof message.reply === 'string'
+                                  ? message.reply
+                                  : JSON.stringify(message.reply, null, 2)}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
+
+                        {message.type === 'PUBLISH' && (
+                          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                            <div>
+                              <h4 className='text-sm font-semibold text-gray-700 mb-2'>Payload:</h4>
+                              <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
+                                {JSON.stringify(message.payload, null, 2)}
+                              </pre>
+                            </div>
+                            <div>
+                              <h4 className='text-sm font-semibold text-gray-700 mb-2'>Result:</h4>
+                              <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
+                                {message.result.ok ? (
+                                  <span className='text-green-600'>✓ Published successfully</span>
+                                ) : (
+                                  <span className='text-red-600'>✗ Error: {message.result.error?.message}</span>
+                                )}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* KV Operations */}
+                        {message.type.startsWith('KV_') && (
+                          <div>
+                            <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
+                              {JSON.stringify(message.result, null, 2)}
+                            </pre>
+                            {message.value && (
+                              <>
+                                <div className='text-xs text-gray-500 mt-1'>Value:</div>
+                                <pre className='text-xs text-gray-700 bg-white p-2 rounded border whitespace-pre-wrap overflow-auto'>
+                                  {JSON.stringify(message.value, null, 2)}
+                                </pre>
+                              </>
+                            )}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -687,13 +705,6 @@ export const MachineExample = () => {
                     className='bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors duration-200'
                   >
                     Unsubscribe All
-                  </button>
-                  <button
-                    onClick={handleClearAllMessages}
-                    disabled={requestReplies.length + receivedMessages.length + publishResults.length === 0}
-                    className='bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors duration-200'
-                  >
-                    Clear Messages
                   </button>
                 </div>
               </div>
@@ -807,13 +818,6 @@ export const MachineExample = () => {
                 >
                   Unsubscribe All
                 </button>
-                <button
-                  onClick={handleClearKvResults}
-                  disabled={kvResults.length === 0}
-                  className='bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors duration-200'
-                >
-                  Clear KV Results
-                </button>
               </div>
             </div>
           </div>
@@ -821,10 +825,13 @@ export const MachineExample = () => {
 
         {/* Right side - Combined State Panel */}
         <div className='h-screen w-96 bg-white shadow-lg border-l border-gray-200 p-4 overflow-y-auto fixed right-0 top-0 flex flex-col z-20'>
-          <h3 className='text-lg font-semibold text-gray-800 mb-4 sticky top-0 bg-white pb-2'>System State</h3>
+          <h3 className='text-lg font-semibold text-gray-800 mb-4 sticky top-0 bg-white'>System State</h3>
+          <div className='bg-gray-100 text-red-500 p-3 rounded-lg font-mono text-sm'>
+            <pre>{state.value}</pre>
+          </div>
 
           {/* Main State */}
-          <div className='mb-6'>
+          <div className='mb-6 mt-3'>
             <h4 className='text-md font-semibold text-gray-700 mb-2'>Root State</h4>
             <div className='bg-gray-50 p-3 rounded-lg'>
               <pre className='text-xs text-gray-700 whitespace-pre-wrap overflow-auto max-h-48'>

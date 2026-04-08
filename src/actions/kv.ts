@@ -9,8 +9,8 @@ export type KvSubscriptionConfig = {
   bucket: string
   key: string
   callback: (data: any) => void
-  replayOnReconnect?: boolean
   opts?: KvWatchOptions
+  replayOnReconnect?: boolean
 }
 
 export const kvConsolidateState = fromPromise(
@@ -24,17 +24,10 @@ export const kvConsolidateState = fromPromise(
       targetState: Map<string, KvSubscriptionConfig>
     }
   }): Promise<{
-    kvm: Kvm | null
     subscriptions: Map<string, QueuedIterator<KvWatchEntry>>
   }> => {
-    let kvm = input.kvm
-
-    if (!kvm) {
-      if (input.connection) {
-        kvm = new Kvm(input.connection)
-      } else {
-        throw new Error('NATS connection or KVM is not available')
-      }
+    if (!input.connection || !input.kvm) {
+      throw new Error('NATS connection or KVM is not available')
     }
 
     const { currentState, targetState } = input
@@ -55,8 +48,10 @@ export const kvConsolidateState = fromPromise(
     // Subscribe to new subjects that are in targetState but not in currentState
     for (const [kvKey, config] of targetState) {
       if (!currentState.has(kvKey)) {
+        // the problem is kv key is triggered on successive calls to consolidateState
+        // the match is not working?
         try {
-          const kv = await kvm.open(config.bucket)
+          const kv = await input.kvm.open(config.bucket)
 
           const watchOptions = config as KvWatchOptions
           const watcher = await kv.watch(watchOptions)
@@ -91,8 +86,7 @@ export const kvConsolidateState = fromPromise(
     }
 
     return {
-      kvm: kvm,
       subscriptions: syncedState,
     }
-  }
+  },
 )

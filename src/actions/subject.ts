@@ -53,10 +53,7 @@ export const subjectConsolidateState = ({
           try {
             for await (const msg of sub) {
               try {
-                if (typeof subscriptionConfig.callback === 'function') {
-                  const data = parseNatsResult(msg)
-                  subscriptionConfig.callback(data)
-                }
+                subscriptionConfig?.callback(parseNatsResult(msg))
               } catch (callbackError) {
                 console.error(`Callback error for subject "${subject}"`, callbackError)
               }
@@ -97,16 +94,9 @@ export const subjectRequest = ({
   connection
     .request(subject, payload, opts)
     .then((msg: Msg) => {
-      try {
-        if (typeof callback === 'function') {
-          const data = parseNatsResult(msg)
-          callback(data)
-        }
-      } catch (callbackError) {
-        console.error(`RequestReply callback error for subject "${subject}"`, callbackError)
-      }
+      callback(parseNatsResult(msg))
     })
-    .catch(err => {
+    .catch((err) => {
       console.error(`RequestReply error for subject "${subject}"`, err)
     })
 }
@@ -129,10 +119,7 @@ export const subjectPublish = ({
 
   try {
     connection.publish(subject, payload, options)
-
-    if (typeof onPublishResult === 'function') {
-      onPublishResult?.({ ok: true })
-    }
+    onPublishResult?.({ ok: true })
   } catch (callbackError) {
     console.error(`Publish callback error for subject "${subject}"`, callbackError)
     onPublishResult?.({ ok: false, error: callbackError as Error })

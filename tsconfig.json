@@ -27,5 +27,5 @@
     "allowSyntheticDefaultImports": true,
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist", ".history"]
+  "exclude": ["node_modules", "dist", ".history", "src/**/*.test.ts"]
 }

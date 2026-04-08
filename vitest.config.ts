@@ -6,6 +6,8 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 10000, // 10 second timeout per test
     hookTimeout: 5000, // 5 second timeout for hooks
+    include: ['src/**/*.test.ts'],
+    exclude: ['dist/**', 'node_modules/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary'],

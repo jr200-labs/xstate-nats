@@ -21,7 +21,11 @@ const mockKvmInstance = {
 }
 
 vi.mock('@nats-io/kv', () => ({
-  Kvm: vi.fn().mockImplementation(() => mockKvmInstance),
+  Kvm: class MockKvm {
+    open = mockKvmInstance.open
+    list = mockKvmInstance.list
+    create = mockKvmInstance.create
+  },
 }))
 
 vi.mock('@nats-io/jetstream', () => ({

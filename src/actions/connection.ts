@@ -1,5 +1,12 @@
 import { fromPromise } from 'xstate'
-import { ConnectionOptions, credsAuthenticator, Msg, NatsConnection, Status, wsconnect } from '@nats-io/nats-core'
+import {
+  ConnectionOptions,
+  credsAuthenticator,
+  Msg,
+  NatsConnection,
+  Status,
+  wsconnect,
+} from '@nats-io/nats-core'
 import { KvEntry } from '@nats-io/kv'
 import { type AuthConfig } from './types'
 import { sendParent } from 'xstate'
@@ -38,7 +45,11 @@ export type InternalStatusEvents =
   | { type: 'NATS_CONNECTION.RECONNECTING'; status: Status }
 
 export const connectToNats = fromPromise(
-  async ({ input }: { input: { opts: ConnectionOptions; auth?: AuthConfig } }): Promise<NatsConnection> => {
+  async ({
+    input,
+  }: {
+    input: { opts: ConnectionOptions; auth?: AuthConfig }
+  }): Promise<NatsConnection> => {
     const mergedOpts: ConnectionOptions = {
       ...input.opts,
       ...makeAuthConfig(input.auth),
@@ -92,15 +103,17 @@ export const connectToNats = fromPromise(
     })()
 
     return nc
-  }
+  },
 )
 
-export const disconnectNats = fromPromise(async ({ input }: { input: { connection: NatsConnection | null } }) => {
-  if (input.connection) {
-    await input.connection.drain()
-    await input.connection.close()
-  }
-})
+export const disconnectNats = fromPromise(
+  async ({ input }: { input: { connection: NatsConnection | null } }) => {
+    if (input.connection) {
+      await input.connection.drain()
+      await input.connection.close()
+    }
+  },
+)
 
 export const parseNatsResult = (msg: Msg | KvEntry | null | Error) => {
   if (!msg) {

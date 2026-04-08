@@ -1,0 +1,11 @@
+name: test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: jr200/github-action-templates/.github/workflows/ci_npmjs.yml@main
+    with:
+      node-version: '22'
+      pnpm-version: '10'

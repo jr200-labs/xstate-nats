@@ -1,0 +1,36 @@
+name: release
+
+on:
+  push:
+    tags:
+      - v*.*.*
+  workflow_dispatch:
+    inputs:
+      checkout-ref:
+        description: 'checkout ref (tag or branch)'
+        required: false
+        type: string
+        default: ''
+      pnpm-publish-args:
+        description: 'extra args for pnpm publish'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  test:
+    uses: jr200/github-action-templates/.github/workflows/ci_npmjs.yml@main
+    with:
+      node-version: '22'
+      pnpm-version: '10'
+
+  publish:
+    needs: [test]
+    uses: jr200/github-action-templates/.github/workflows/build_publish_npmjs.yml@main
+    with:
+      checkout-ref: ${{ inputs.checkout-ref || github.ref_name }}
+      pnpm-run-test: 'true'
+      pnpm-publish-args: ${{ inputs.pnpm-publish-args || '' }}
+      node-version: '22'
+    secrets:
+      npmjs_api_token: ${{ secrets.NPMJS_API_TOKEN }}

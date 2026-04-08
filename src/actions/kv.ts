@@ -88,5 +88,5 @@ export const kvConsolidateState = fromPromise(
     return {
       subscriptions: syncedState,
     }
-  }
+  },
 )

@@ -47,7 +47,7 @@ function MyComponent() {
         maxRetries: 3
       }
     })
-    
+
     send({ type: 'CONNECT' })
   }
 
@@ -70,15 +70,15 @@ send({
     subject: 'user.events',
     callback: (data) => {
       console.log('Received:', data)
-    }
-  }
+    },
+  },
 })
 
 // Publish to a subject
 send({
   type: 'SUBJECT.PUBLISH',
   subject: 'user.events',
-  payload: { userId: 123, action: 'login' }
+  payload: { userId: 123, action: 'login' },
 })
 
 // Request-reply pattern
@@ -88,7 +88,7 @@ send({
   payload: { userId: 123 },
   callback: (reply) => {
     console.log('Reply:', reply)
-  }
+  },
 })
 ```
 
@@ -103,7 +103,7 @@ send({
     if (result.ok) {
       console.log('Bucket created successfully')
     }
-  }
+  },
 })
 
 // Put a value
@@ -116,7 +116,7 @@ send({
     if (result.ok) {
       console.log('Value stored successfully')
     }
-  }
+  },
 })
 
 // Get a value
@@ -130,7 +130,7 @@ send({
     } else {
       console.log('Value:', result)
     }
-  }
+  },
 })
 
 // Subscribe to KV changes
@@ -141,8 +141,8 @@ send({
     key: 'user-123',
     callback: (entry) => {
       console.log('KV Update:', entry)
-    }
-  }
+    },
+  },
 })
 ```
 
@@ -196,12 +196,14 @@ auth: {
 ### Events
 
 #### Connection Events
+
 - `CONFIGURE`: Set connection configuration
 - `CONNECT`: Establish connection
 - `DISCONNECT`: Close connection
 - `RESET`: Reset to initial state
 
 #### Subject Events
+
 - `SUBJECT.SUBSCRIBE`: Subscribe to a subject
 - `SUBJECT.UNSUBSCRIBE`: Unsubscribe from a subject
 - `SUBJECT.PUBLISH`: Publish to a subject
@@ -209,6 +211,7 @@ auth: {
 - `SUBJECT.UNSUBSCRIBE_ALL`: Clear all subscriptions
 
 #### KV Events
+
 - `KV.BUCKET_CREATE`: Create a KV bucket
 - `KV.BUCKET_DELETE`: Delete a KV bucket
 - `KV.BUCKET_LIST`: List KV buckets

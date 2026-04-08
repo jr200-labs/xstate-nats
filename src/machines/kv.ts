@@ -114,7 +114,10 @@ export const kvManagerLogic = setup({
       }),
     },
     'KV.UNSUBSCRIBE_ALL': {
-      actions: assign({ subscriptionConfigs: new Map(), syncRequired: ({ context }) => context.syncRequired + 1 }),
+      actions: assign({
+        subscriptionConfigs: new Map(),
+        syncRequired: ({ context }) => context.syncRequired + 1,
+      }),
     },
   },
   states: {

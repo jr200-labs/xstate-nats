@@ -1,6 +1,11 @@
 import { Subscription, PublishOptions, NatsConnection, RequestOptions } from '@nats-io/nats-core'
 import { assign, sendParent, setup } from 'xstate'
-import { SubjectSubscriptionConfig, subjectConsolidateState, subjectRequest, subjectPublish } from '../actions/subject'
+import {
+  SubjectSubscriptionConfig,
+  subjectConsolidateState,
+  subjectRequest,
+  subjectPublish,
+} from '../actions/subject'
 
 // internal events and events from nats connection
 type InternalEvents = { type: 'ERROR'; error: Error }
@@ -87,7 +92,10 @@ export const subjectManagerLogic = setup({
       ],
     },
     'SUBJECT.UNSUBSCRIBE_ALL': {
-      actions: assign({ subscriptionConfigs: new Map(), syncRequired: ({ context }) => context.syncRequired + 1 }),
+      actions: assign({
+        subscriptionConfigs: new Map(),
+        syncRequired: ({ context }) => context.syncRequired + 1,
+      }),
     },
   },
   states: {

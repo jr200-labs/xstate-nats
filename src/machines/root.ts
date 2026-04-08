@@ -48,12 +48,12 @@ export const natsMachine = setup({
   },
   actions: {
     doReset: assign({
-      natsConfig: _ => undefined,
-      connection: _ => null,
-      error: _ => undefined,
-      retries: _ => 0,
-      subjectManagerReady: _ => false,
-      kvManagerReady: _ => false,
+      natsConfig: (_) => undefined,
+      connection: (_) => null,
+      error: (_) => undefined,
+      retries: (_) => 0,
+      subjectManagerReady: (_) => false,
+      kvManagerReady: (_) => false,
     }),
   },
   guards: {
@@ -145,7 +145,7 @@ export const natsMachine = setup({
             actions: [
               assign({
                 connection: ({ event }) => event.output,
-                retries: _ => 0,
+                retries: (_) => 0,
               }),
             ],
           },
@@ -161,15 +161,18 @@ export const natsMachine = setup({
     },
     initialise_managers: {
       entry: [
-        sendTo('subject', ({ context }) => ({ type: 'SUBJECT.CONNECT', connection: context.connection! })),
+        sendTo('subject', ({ context }) => ({
+          type: 'SUBJECT.CONNECT',
+          connection: context.connection!,
+        })),
         sendTo('kv', ({ context }) => ({ type: 'KV.CONNECT', connection: context.connection! })),
       ],
       on: {
         'SUBJECT.CONNECTED': {
-          actions: [assign({ subjectManagerReady: _ => true })],
+          actions: [assign({ subjectManagerReady: (_) => true })],
         },
         'KV.CONNECTED': {
-          actions: [assign({ kvManagerReady: _ => true })],
+          actions: [assign({ kvManagerReady: (_) => true })],
         },
       },
       always: [
@@ -181,7 +184,7 @@ export const natsMachine = setup({
     },
     connected: {
       entry: [
-        event => {
+        (event) => {
           console.log('CONNECTED', event.context.connection?.getServer())
         },
       ],
@@ -197,9 +200,12 @@ export const natsMachine = setup({
             ({ event }: any) => {
               console.log('xstat-nats forwarding subject event', event)
             },
-            sendTo('subject', ({ event, context }: { event: SubjectExternalEvents; context: Context }) => {
-              return { ...event, connection: context.connection }
-            }),
+            sendTo(
+              'subject',
+              ({ event, context }: { event: SubjectExternalEvents; context: Context }) => {
+                return { ...event, connection: context.connection }
+              },
+            ),
           ],
         },
         'KV.*': {
@@ -223,7 +229,7 @@ export const natsMachine = setup({
     },
     closing: {
       entry: [
-        event => {
+        (event) => {
           console.log('CLOSING', event.context.connection?.getServer())
         },
         sendTo('subject', { type: 'SUBJECT.DISCONNECTED' }),

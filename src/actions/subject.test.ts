@@ -41,7 +41,7 @@ describe('subjectConsolidateState', () => {
           currentSubscriptions: new Map(),
           targetSubscriptions: new Map(),
         },
-      })
+      }),
     ).toThrow('NATS connection is not available')
   })
 
@@ -161,7 +161,7 @@ describe('subjectConsolidateState', () => {
       { json: () => ({ id: 2 }), string: () => '{"id":2}' },
     ]
     let resolveIterator: () => void
-    const iteratorDone = new Promise<void>(r => (resolveIterator = r))
+    const iteratorDone = new Promise<void>((r) => (resolveIterator = r))
     let msgIndex = 0
 
     const mockSub = {
@@ -193,7 +193,7 @@ describe('subjectConsolidateState', () => {
 
     await iteratorDone
     // Allow microtasks to flush
-    await new Promise(r => setTimeout(r, 10))
+    await new Promise((r) => setTimeout(r, 10))
     expect(callback).toHaveBeenCalledTimes(2)
     expect(callback).toHaveBeenCalledWith({ id: 1 })
     expect(callback).toHaveBeenCalledWith({ id: 2 })
@@ -202,7 +202,7 @@ describe('subjectConsolidateState', () => {
   it('should handle callback errors in the message loop', async () => {
     const connection = createMockConnection()
     let resolveIterator: () => void
-    const iteratorDone = new Promise<void>(r => (resolveIterator = r))
+    const iteratorDone = new Promise<void>((r) => (resolveIterator = r))
     let delivered = false
 
     const mockSub = {
@@ -237,7 +237,7 @@ describe('subjectConsolidateState', () => {
     })
 
     await iteratorDone
-    await new Promise(r => setTimeout(r, 10))
+    await new Promise((r) => setTimeout(r, 10))
     consoleSpy.mockRestore()
 
     expect(callback).toHaveBeenCalledTimes(1)
@@ -269,7 +269,7 @@ describe('subjectConsolidateState', () => {
     await vi.waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining('Iterator error'),
-        expect.any(Error)
+        expect.any(Error),
       )
     })
     consoleSpy.mockRestore()
@@ -307,7 +307,7 @@ describe('subjectRequest', () => {
           payload: {},
           callback: vi.fn(),
         },
-      })
+      }),
     ).toThrow('NATS connection is not available')
   })
 
@@ -352,7 +352,10 @@ describe('subjectRequest', () => {
     })
 
     await vi.waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('RequestReply error'), expect.any(Error))
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('RequestReply error'),
+        expect.any(Error),
+      )
     })
 
     consoleSpy.mockRestore()
@@ -369,7 +372,7 @@ describe('subjectPublish', () => {
           subject: 'test',
           payload: {},
         },
-      })
+      }),
     ).toThrow('NATS connection is not available')
   })
 
@@ -451,7 +454,7 @@ describe('subjectPublish', () => {
           subject: 'test.publish',
           payload: 'data',
         },
-      })
+      }),
     ).not.toThrow()
   })
 })

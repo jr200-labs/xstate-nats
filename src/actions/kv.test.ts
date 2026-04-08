@@ -51,7 +51,7 @@ describe('kvConsolidateState', () => {
       expect(caughtError).toBeDefined()
     })
     expect(caughtError!.message).toContain('NATS connection or KVM is not available')
-    origListeners.forEach(l => process.on('uncaughtException', l))
+    origListeners.forEach((l) => process.on('uncaughtException', l))
   })
 
   it('should throw when kvm is null', async () => {
@@ -76,7 +76,7 @@ describe('kvConsolidateState', () => {
       expect(caughtError).toBeDefined()
     })
     expect(caughtError!.message).toContain('NATS connection or KVM is not available')
-    origListeners.forEach(l => process.on('uncaughtException', l))
+    origListeners.forEach((l) => process.on('uncaughtException', l))
   })
 
   it('should unsubscribe from items not in target state', async () => {
@@ -92,8 +92,8 @@ describe('kvConsolidateState', () => {
       },
     })
 
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => {
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.output) resolve(snap.output)
       })
     })
@@ -122,8 +122,8 @@ describe('kvConsolidateState', () => {
       },
     })
 
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => {
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.output) resolve(snap.output)
       })
     })
@@ -168,8 +168,8 @@ describe('kvConsolidateState', () => {
       },
     })
 
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => {
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.output) resolve(snap.output)
       })
     })
@@ -207,8 +207,8 @@ describe('kvConsolidateState', () => {
       },
     })
 
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => {
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.output) resolve(snap.output)
       })
     })
@@ -223,7 +223,7 @@ describe('kvConsolidateState', () => {
   it('should invoke callback for watcher entries with JSON values', async () => {
     let entryIndex = 0
     let resolveDelivered: () => void
-    const deliveredPromise = new Promise<void>(r => (resolveDelivered = r))
+    const deliveredPromise = new Promise<void>((r) => (resolveDelivered = r))
     const entries = [
       { operation: 'PUT', string: () => '{"val":1}' },
       { operation: 'PUT', string: () => '{"val":2}' },
@@ -243,9 +243,7 @@ describe('kvConsolidateState', () => {
     const mockKvm = { open: vi.fn().mockResolvedValue(mockKv) }
 
     const callback = vi.fn()
-    const targetState = new Map([
-      ['Pair(b, k)', { bucket: 'b', key: 'k', callback }],
-    ])
+    const targetState = new Map([['Pair(b, k)', { bucket: 'b', key: 'k', callback }]])
 
     const actor = createActor(kvConsolidateState, {
       input: {
@@ -255,13 +253,15 @@ describe('kvConsolidateState', () => {
         targetState: targetState as any,
       },
     })
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => { if (snap.output) resolve(snap.output) })
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
+        if (snap.output) resolve(snap.output)
+      })
     })
     actor.start()
     await outputPromise
     await deliveredPromise
-    await new Promise(r => setTimeout(r, 10))
+    await new Promise((r) => setTimeout(r, 10))
 
     expect(callback).toHaveBeenCalledTimes(2)
     expect(callback).toHaveBeenCalledWith({ bucket: 'b', key: 'k', value: { val: 1 } })
@@ -271,7 +271,7 @@ describe('kvConsolidateState', () => {
   it('should fall back to string when JSON parsing fails in watcher', async () => {
     let delivered = false
     let resolveDelivered: () => void
-    const deliveredPromise = new Promise<void>(r => (resolveDelivered = r))
+    const deliveredPromise = new Promise<void>((r) => (resolveDelivered = r))
     const mockWatcher = {
       [Symbol.asyncIterator]: () => ({
         next: () => {
@@ -291,9 +291,7 @@ describe('kvConsolidateState', () => {
     const mockKvm = { open: vi.fn().mockResolvedValue(mockKv) }
 
     const callback = vi.fn()
-    const targetState = new Map([
-      ['Pair(b, k)', { bucket: 'b', key: 'k', callback }],
-    ])
+    const targetState = new Map([['Pair(b, k)', { bucket: 'b', key: 'k', callback }]])
 
     const actor = createActor(kvConsolidateState, {
       input: {
@@ -303,13 +301,15 @@ describe('kvConsolidateState', () => {
         targetState: targetState as any,
       },
     })
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => { if (snap.output) resolve(snap.output) })
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
+        if (snap.output) resolve(snap.output)
+      })
     })
     actor.start()
     await outputPromise
     await deliveredPromise
-    await new Promise(r => setTimeout(r, 10))
+    await new Promise((r) => setTimeout(r, 10))
 
     expect(callback).toHaveBeenCalledWith({ bucket: 'b', key: 'k', value: 'not-json' })
   })
@@ -317,7 +317,7 @@ describe('kvConsolidateState', () => {
   it('should skip DEL operations in watcher', async () => {
     let delivered = false
     let resolveDelivered: () => void
-    const deliveredPromise = new Promise<void>(r => (resolveDelivered = r))
+    const deliveredPromise = new Promise<void>((r) => (resolveDelivered = r))
     const mockWatcher = {
       [Symbol.asyncIterator]: () => ({
         next: () => {
@@ -337,9 +337,7 @@ describe('kvConsolidateState', () => {
     const mockKvm = { open: vi.fn().mockResolvedValue(mockKv) }
 
     const callback = vi.fn()
-    const targetState = new Map([
-      ['Pair(b, k)', { bucket: 'b', key: 'k', callback }],
-    ])
+    const targetState = new Map([['Pair(b, k)', { bucket: 'b', key: 'k', callback }]])
 
     const actor = createActor(kvConsolidateState, {
       input: {
@@ -349,13 +347,15 @@ describe('kvConsolidateState', () => {
         targetState: targetState as any,
       },
     })
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => { if (snap.output) resolve(snap.output) })
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
+        if (snap.output) resolve(snap.output)
+      })
     })
     actor.start()
     await outputPromise
     await deliveredPromise
-    await new Promise(r => setTimeout(r, 10))
+    await new Promise((r) => setTimeout(r, 10))
 
     expect(callback).not.toHaveBeenCalled()
   })
@@ -371,9 +371,7 @@ describe('kvConsolidateState', () => {
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const callback = vi.fn()
-    const targetState = new Map([
-      ['Pair(b, k)', { bucket: 'b', key: 'k', callback }],
-    ])
+    const targetState = new Map([['Pair(b, k)', { bucket: 'b', key: 'k', callback }]])
 
     const actor = createActor(kvConsolidateState, {
       input: {
@@ -383,8 +381,10 @@ describe('kvConsolidateState', () => {
         targetState: targetState as any,
       },
     })
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => { if (snap.output) resolve(snap.output) })
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
+        if (snap.output) resolve(snap.output)
+      })
     })
     actor.start()
     await outputPromise
@@ -392,7 +392,7 @@ describe('kvConsolidateState', () => {
     await vi.waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining('Watcher loop error'),
-        expect.any(Error)
+        expect.any(Error),
       )
     })
     consoleSpy.mockRestore()
@@ -425,8 +425,8 @@ describe('kvConsolidateState', () => {
       },
     })
 
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => {
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.output) resolve(snap.output)
       })
     })

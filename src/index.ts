@@ -4,7 +4,11 @@ export {
   type Context as SubjectContext,
   type ExternalEvents as SubjectEvent,
 } from './machines/subject'
-export { kvManagerLogic, type Context as KvContext, type ExternalEvents as KvEvent } from './machines/kv'
+export {
+  kvManagerLogic,
+  type Context as KvContext,
+  type ExternalEvents as KvEvent,
+} from './machines/kv'
 export { KvSubscriptionKey, type KvSubscriptionConfig } from './actions/kv'
 export { parseNatsResult } from './actions/connection'
 export { type AuthConfig } from './actions/types'

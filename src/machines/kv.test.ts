@@ -365,9 +365,12 @@ describe('kvManagerLogic', () => {
 
   it('should handle KV.BUCKET_DELETE when stream delete fails', async () => {
     const { jetstream } = await import('@nats-io/jetstream')
-    vi.mocked(jetstream).mockImplementationOnce(() => ({
-      jetstreamManager: vi.fn().mockRejectedValue(new Error('stream error')),
-    }) as any)
+    vi.mocked(jetstream).mockImplementationOnce(
+      () =>
+        ({
+          jetstreamManager: vi.fn().mockRejectedValue(new Error('stream error')),
+        }) as any,
+    )
 
     const kvWithMockSync = kvManagerLogic.provide({
       actors: { kvConsolidateState: fromPromise(async () => ({ subscriptions: new Map() })) },

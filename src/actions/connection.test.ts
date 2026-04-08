@@ -62,8 +62,8 @@ describe('connectToNats', () => {
       input: { opts: { servers: ['ws://localhost:4222'] } },
     })
 
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => {
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.output !== undefined) resolve(snap.output)
       })
     })
@@ -93,8 +93,8 @@ describe('connectToNats', () => {
       },
     })
 
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => {
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.output !== undefined) resolve(snap.output)
       })
     })
@@ -127,8 +127,8 @@ describe('connectToNats', () => {
       },
     })
 
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => {
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.output !== undefined) resolve(snap.output)
       })
     })
@@ -165,8 +165,8 @@ describe('connectToNats', () => {
       },
     })
 
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => {
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.output !== undefined) resolve(snap.output)
       })
     })
@@ -180,7 +180,7 @@ describe('connectToNats', () => {
         authenticator: 'mock-authenticator',
         user: 'nkey-user',
         pass: 'nkey-pass',
-      })
+      }),
     )
   })
 
@@ -201,7 +201,7 @@ describe('connectToNats', () => {
       { type: 'update', data: {} },
     ]
     let resolveStatusDone: () => void
-    const statusDone = new Promise<void>(r => (resolveStatusDone = r))
+    const statusDone = new Promise<void>((r) => (resolveStatusDone = r))
 
     const mockConnection = {
       status: () => ({
@@ -225,8 +225,8 @@ describe('connectToNats', () => {
       input: { opts: { servers: ['ws://localhost:4222'] } },
     })
 
-    const outputPromise = new Promise<any>(resolve => {
-      actor.subscribe(snap => {
+    const outputPromise = new Promise<any>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.output !== undefined) resolve(snap.output)
       })
     })
@@ -234,11 +234,17 @@ describe('connectToNats', () => {
     await outputPromise
     await statusDone
     // Wait for the status loop to finish processing
-    await new Promise(r => setTimeout(r, 50))
+    await new Promise((r) => setTimeout(r, 50))
 
     // Verify the status loop processed all events
-    expect(consoleSpy).toHaveBeenCalledWith('Status loop received status', expect.objectContaining({ type: 'disconnect' }))
-    expect(consoleSpy).toHaveBeenCalledWith('Status loop received status', expect.objectContaining({ type: 'reconnect' }))
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Status loop received status',
+      expect.objectContaining({ type: 'disconnect' }),
+    )
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Status loop received status',
+      expect.objectContaining({ type: 'reconnect' }),
+    )
     expect(consoleSpy).toHaveBeenCalledWith('Exiting nats status loop')
     consoleSpy.mockRestore()
     debugSpy.mockRestore()
@@ -274,7 +280,7 @@ describe('connectToNats', () => {
     expect(caughtError!.message).toContain('Unsupported auth config type')
 
     // Restore listeners
-    origListeners.forEach(l => process.on('uncaughtException', l))
+    origListeners.forEach((l) => process.on('uncaughtException', l))
   })
 })
 
@@ -289,8 +295,8 @@ describe('disconnectNats', () => {
       input: { connection: mockConnection as any },
     })
 
-    const donePromise = new Promise<void>(resolve => {
-      actor.subscribe(snap => {
+    const donePromise = new Promise<void>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.status === 'done') resolve()
       })
     })
@@ -306,8 +312,8 @@ describe('disconnectNats', () => {
       input: { connection: null as any },
     })
 
-    const donePromise = new Promise<void>(resolve => {
-      actor.subscribe(snap => {
+    const donePromise = new Promise<void>((resolve) => {
+      actor.subscribe((snap) => {
         if (snap.status === 'done') resolve()
       })
     })

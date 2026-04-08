@@ -96,7 +96,7 @@ export const subjectRequest = ({
     .then((msg: Msg) => {
       callback(parseNatsResult(msg))
     })
-    .catch(err => {
+    .catch((err) => {
       console.error(`RequestReply error for subject "${subject}"`, err)
     })
 }

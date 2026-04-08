@@ -326,6 +326,4 @@ describe('natsMachine', () => {
 
     actor.stop()
   })
-
-
 })

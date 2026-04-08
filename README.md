@@ -1,4 +1,4 @@
-# @jr200/xstate-nats
+# @jr200-labs/xstate-nats
 
 A state machine library that integrates [XState v5](https://xstate.js.org/) with [NATS](https://nats.io/) messaging system, providing a type-safe way to manage NATS connections, subscriptions, and Key-Value operations.
 
@@ -14,11 +14,7 @@ A state machine library that integrates [XState v5](https://xstate.js.org/) with
 ## Installation
 
 ```bash
-npm install @jr200/xstate-nats
-# or
-pnpm add @jr200/xstate-nats
-# or
-yarn add @jr200/xstate-nats
+pnpm add @jr200-labs/xstate-nats
 ```
 
 ## Quick Start
@@ -26,7 +22,7 @@ yarn add @jr200/xstate-nats
 ### Basic Setup
 
 ```typescript
-import { natsMachine } from '@jr200/xstate-nats'
+import { natsMachine } from '@jr200-labs/xstate-nats'
 import { useActor } from '@xstate/react'
 
 function MyComponent() {
@@ -37,15 +33,15 @@ function MyComponent() {
       type: 'CONFIGURE',
       config: {
         opts: {
-          servers: ['nats://localhost:4222']
+          servers: ['nats://localhost:4222'],
         },
         auth: {
           type: 'userpass',
           user: 'myuser',
-          pass: 'mypass'
+          pass: 'mypass',
         },
-        maxRetries: 3
-      }
+        maxRetries: 3,
+      },
     })
 
     send({ type: 'CONNECT' })
@@ -230,38 +226,26 @@ Check out the [React example](./examples/react-test/) for a complete working imp
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm (recommended) or npm
-- NATS server running locally
+- Node.js 22+
+- pnpm
 
 ### Setup
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Start NATS server (if not already running)
-nats-server -c nats-server.conf
-
-# Run the React example
-cd examples/react-test
-pnpm dev
+make install
 ```
 
-### Scripts
+### Commands
 
-- `pnpm build`: Build the library
-- `pnpm test`: Run tests
-- `pnpm lint`: Run ESLint
-- `pnpm format`: Format code with Prettier
+```bash
+make check          # Run prettier + lint (tsc --noEmit)
+make test           # Run tests
+make build          # Build the library
+make bump PART=patch  # Bump version (major|minor|patch)
+make release        # Tag, push, and create GitHub release
+make publish        # Build, test, and publish to npm
+```
 
 ## License
 
 MIT
-
-## Dependencies
-
-- [XState](https://xstate.js.org/) - State machine library
-- [@nats-io/nats-core](https://github.com/nats-io/nats.js) - NATS client
-- [@nats-io/jetstream](https://github.com/nats-io/nats.js) - JetStream support
-- [@nats-io/kv](https://github.com/nats-io/nats.js) - Key-Value store

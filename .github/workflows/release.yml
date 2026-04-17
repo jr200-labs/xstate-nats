@@ -19,14 +19,14 @@ on:
 
 jobs:
   test:
-    uses: jr200/github-action-templates/.github/workflows/ci_npmjs.yml@main
+    uses: jr200-labs/github-action-templates/.github/workflows/ci_npmjs.yml@master
     with:
       node-version: '22'
       pnpm-version: '10'
 
   publish:
     needs: [test]
-    uses: jr200/github-action-templates/.github/workflows/build_publish_npmjs.yml@main
+    uses: jr200-labs/github-action-templates/.github/workflows/build_publish_npmjs.yml@master
     with:
       checkout-ref: ${{ inputs.checkout-ref || github.ref_name }}
       pnpm-run-test: 'true'

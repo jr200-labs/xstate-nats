@@ -7,7 +7,7 @@ on:
 
 jobs:
   ci:
-    uses: jr200-labs/github-action-templates/.github/workflows/ci_npmjs.yml@master
+    uses: jr200-labs/github-action-templates/.github/workflows/ci_npmjs.yaml@master
     with:
       node-version: '22'
       pnpm-version: '10'

@@ -51,7 +51,7 @@
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.4",
     "husky": "^9.1.7",
-    "prettier": "^3.8.2",
+    "prettier": "^3.8.3",
     "typescript": "^6.0.2",
     "vitest": "^4.1.4"
   }

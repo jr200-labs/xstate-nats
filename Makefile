@@ -10,7 +10,13 @@ install:
 update:
 	pnpm update --latest
 
-check:
+sync-shared-lint:
+	@mkdir -p .shared
+	@curl -sfL "https://raw.githubusercontent.com/jr200-labs/github-action-templates/master/shared/sync-shared-lint.sh" -o .shared/sync-shared-lint.sh
+	@chmod +x .shared/sync-shared-lint.sh
+	@./.shared/sync-shared-lint.sh node
+
+check: sync-shared-lint
 	pnpm run prettier --write
 	pnpm run lint
 

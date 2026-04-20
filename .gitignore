@@ -11,3 +11,4 @@ coverage/
 *.bak
 *.swp
 *.tgz
+.shared/

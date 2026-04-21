@@ -16,7 +16,13 @@ sync-shared-lint:
 	@chmod +x .shared/sync-shared-lint.sh
 	@./.shared/sync-shared-lint.sh node
 
-check: sync-shared-lint
+verify-lockfile:
+	@if git diff --cached --name-only 2>/dev/null | grep -q "package.json"; then \
+		pnpm install --lockfile-only --frozen-lockfile 2>/dev/null || \
+		(echo "ERROR: pnpm-lock.yaml out of sync with package.json. Run: pnpm install" && exit 1); \
+	fi
+
+check: sync-shared-lint verify-lockfile
 	pnpm run prettier --write
 	pnpm run lint
 

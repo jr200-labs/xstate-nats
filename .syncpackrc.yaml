@@ -1,0 +1,6 @@
+# syncpack config — enforce semver range consistency
+semverGroups:
+  - label: "Default — caret ranges"
+    dependencies:
+      - "**"
+    range: "^"

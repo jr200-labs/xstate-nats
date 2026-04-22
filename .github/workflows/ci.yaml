@@ -1,4 +1,4 @@
-name: test
+name: ci
 
 on:
   pull_request:
@@ -11,3 +11,6 @@ jobs:
     with:
       node-version: '22'
       pnpm-version: '10'
+
+  commitlint:
+    uses: jr200-labs/github-action-templates/.github/workflows/lint_commits.yaml@master

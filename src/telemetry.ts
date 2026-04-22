@@ -14,12 +14,7 @@
 //     the per-message span so cross-process traces nest automatically.
 
 import type { Context, Span, Tracer } from '@opentelemetry/api'
-import {
-  context as otelContext,
-  propagation,
-  SpanStatusCode,
-  trace,
-} from '@opentelemetry/api'
+import { context as otelContext, propagation, SpanStatusCode, trace } from '@opentelemetry/api'
 import type { MsgHdrs } from '@nats-io/nats-core'
 import { headers as natsHeaders } from '@nats-io/nats-core'
 import pkg from '../package.json' with { type: 'json' }

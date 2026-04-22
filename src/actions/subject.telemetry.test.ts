@@ -120,14 +120,12 @@ describe('subject telemetry', () => {
     })
 
     await vi.waitFor(() => {
-      expect(harness.exporter.getFinishedSpans().some((s) => s.name === 'xstate.nats.request')).toBe(
-        true,
-      )
+      expect(
+        harness.exporter.getFinishedSpans().some((s) => s.name === 'xstate.nats.request'),
+      ).toBe(true)
     })
 
-    const req = harness.exporter
-      .getFinishedSpans()
-      .find((s) => s.name === 'xstate.nats.request')!
+    const req = harness.exporter.getFinishedSpans().find((s) => s.name === 'xstate.nats.request')!
     expect(req.attributes.subject).toBe('t.req')
     expect(req.attributes['timeout.ms']).toBe(2500)
   })
@@ -187,9 +185,9 @@ describe('subject telemetry', () => {
 
     await iterDone
     await vi.waitFor(() => {
-      expect(harness.exporter.getFinishedSpans().some((s) => s.name === 'xstate.nats.message')).toBe(
-        true,
-      )
+      expect(
+        harness.exporter.getFinishedSpans().some((s) => s.name === 'xstate.nats.message'),
+      ).toBe(true)
     })
 
     const msgSpan = harness.exporter

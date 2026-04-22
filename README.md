@@ -226,15 +226,15 @@ and request/reply replier.
 
 ### Emitted spans
 
-| Span name                  | Emitted by              | Attributes                                           |
-| -------------------------- | ----------------------- | ---------------------------------------------------- |
-| `xstate.nats.subscribe`    | `SUBJECT.SUBSCRIBE`     | `subject`                                            |
-| `xstate.nats.message`      | per received message    | `subject`, `payload.bytes`                           |
-| `xstate.nats.publish`      | `SUBJECT.PUBLISH`       | `subject`, `payload.bytes`                           |
-| `xstate.nats.request`      | `SUBJECT.REQUEST`       | `subject`, `payload.bytes`, `timeout.ms`             |
-| `xstate.nats.reconnect`    | NATS status loop        | `reconnect.type`                                     |
-| `xstate.nats.kv.watch`     | `KV.SUBSCRIBE`          | `bucket`, `key`                                      |
-| `xstate.nats.kv.entry`     | per KV watch entry      | `bucket`, `key`, `operation`                         |
+| Span name               | Emitted by           | Attributes                               |
+| ----------------------- | -------------------- | ---------------------------------------- |
+| `xstate.nats.subscribe` | `SUBJECT.SUBSCRIBE`  | `subject`                                |
+| `xstate.nats.message`   | per received message | `subject`, `payload.bytes`               |
+| `xstate.nats.publish`   | `SUBJECT.PUBLISH`    | `subject`, `payload.bytes`               |
+| `xstate.nats.request`   | `SUBJECT.REQUEST`    | `subject`, `payload.bytes`, `timeout.ms` |
+| `xstate.nats.reconnect` | NATS status loop     | `reconnect.type`                         |
+| `xstate.nats.kv.watch`  | `KV.SUBSCRIBE`       | `bucket`, `key`                          |
+| `xstate.nats.kv.entry`  | per KV watch entry   | `bucket`, `key`, `operation`             |
 
 All error paths record exceptions on the active span, set span status to
 `ERROR`, and emit a named event (`xstate.nats.error` / `xstate.nats.kv.error`)
@@ -252,7 +252,11 @@ import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-ho
 import { W3CTraceContextPropagator } from '@opentelemetry/core'
 import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base'
 
-const provider = new BasicTracerProvider({ spanProcessors: [/* your exporter */] })
+const provider = new BasicTracerProvider({
+  spanProcessors: [
+    /* your exporter */
+  ],
+})
 trace.setGlobalTracerProvider(provider)
 propagation.setGlobalPropagator(new W3CTraceContextPropagator())
 

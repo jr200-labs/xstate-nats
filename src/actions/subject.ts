@@ -55,11 +55,8 @@ export const subjectConsolidateState = ({
         // Short span around the synchronous subscribe() call. The iterator
         // below is long-lived; we don't span its whole lifetime (indefinite
         // spans are anti-pattern in most tracing backends).
-        const sub = withSpan(
-          'xstate.nats.subscribe',
-          'xstate.nats.error',
-          { subject },
-          () => connection.subscribe(subject, subscriptionConfig.opts),
+        const sub = withSpan('xstate.nats.subscribe', 'xstate.nats.error', { subject }, () =>
+          connection.subscribe(subject, subscriptionConfig.opts),
         ) as Subscription
 
         // Message loop: each received message starts its own span, parented

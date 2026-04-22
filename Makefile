@@ -10,11 +10,8 @@ install:
 update:
 	pnpm update --latest
 
-sync-shared-lint:
-	@mkdir -p .shared
-	@curl -sfL "https://raw.githubusercontent.com/jr200-labs/github-action-templates/master/shared/sync-shared-lint.sh" -o .shared/sync-shared-lint.sh
-	@chmod +x .shared/sync-shared-lint.sh
-	@./.shared/sync-shared-lint.sh node
+sync-shared:
+	@bash -c 'mkdir -p .shared; [ -x .shared/sync.sh ] || { curl -sfL --max-time 10 "https://raw.githubusercontent.com/jr200-labs/github-action-templates/master/shared/sync.sh" -o .shared/sync.sh 2>/dev/null && chmod +x .shared/sync.sh; }; [ -x .shared/sync.sh ] && .shared/sync.sh node; exit 0'
 
 verify-lockfile:
 	@if git diff --cached --name-only 2>/dev/null | grep -q "package.json"; then \
@@ -22,7 +19,7 @@ verify-lockfile:
 		(echo "ERROR: pnpm-lock.yaml out of sync with package.json. Run: pnpm install" && exit 1); \
 	fi
 
-check: sync-shared-lint verify-lockfile
+check: sync-shared verify-lockfile
 	pnpm run prettier --write
 	pnpm run lint
 

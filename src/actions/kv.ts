@@ -2,6 +2,7 @@ import { NatsConnection, QueuedIterator } from '@nats-io/nats-core'
 import { Kvm, KvWatchEntry, KvWatchOptions } from '@nats-io/kv'
 import { Pair } from '../utils'
 import { fromPromise } from 'xstate'
+import { recordError, withSpan } from '../telemetry'
 
 export class KvSubscriptionKey extends Pair<string, string> {}
 
@@ -54,25 +55,52 @@ export const kvConsolidateState = fromPromise(
           const kv = await input.kvm.open(config.bucket)
 
           const watchOptions = config as KvWatchOptions
-          const watcher = await kv.watch(watchOptions)
+          // Short span around the synchronous-ish watch() setup — the watcher
+          // iterator itself is long-lived, so each received entry gets its
+          // own span below rather than one indefinite parent.
+          const watcher = (await withSpan(
+            'xstate.nats.kv.watch',
+            'xstate.nats.kv.error',
+            { bucket: config.bucket, key: config.key },
+            () => kv.watch(watchOptions),
+          )) as QueuedIterator<KvWatchEntry>
 
           syncedState.set(kvKey, watcher)
           ;(async () => {
             try {
               for await (const e of watcher) {
                 if (e.operation !== 'DEL') {
-                  let parsedValue
-                  try {
-                    parsedValue = JSON.parse(e.string())
-                  } catch {
-                    parsedValue = e.string()
-                  }
+                  await withSpan(
+                    'xstate.nats.kv.entry',
+                    'xstate.nats.kv.error',
+                    {
+                      bucket: config.bucket,
+                      key: config.key,
+                      operation: e.operation,
+                    },
+                    (span) => {
+                      let parsedValue
+                      try {
+                        parsedValue = JSON.parse(e.string())
+                      } catch {
+                        parsedValue = e.string()
+                      }
 
-                  config.callback({
-                    bucket: config.bucket,
-                    key: config.key,
-                    value: parsedValue,
-                  })
+                      try {
+                        config.callback({
+                          bucket: config.bucket,
+                          key: config.key,
+                          value: parsedValue,
+                        })
+                      } catch (callbackError) {
+                        recordError(span, 'xstate.nats.kv.error', callbackError)
+                        console.error(
+                          `KV_SUBSCRIBE (connected): Callback error for ${kvKey}:`,
+                          callbackError,
+                        )
+                      }
+                    },
+                  )
                 }
               }
             } catch (error) {

@@ -332,7 +332,11 @@ describe('subjectRequest', () => {
       expect(callback).toHaveBeenCalled()
     })
 
-    expect(connection.request).toHaveBeenCalledWith('test.request', { data: 1 }, { timeout: 5000 })
+    expect(connection.request).toHaveBeenCalledWith(
+      'test.request',
+      { data: 1 },
+      expect.objectContaining({ timeout: 5000 }),
+    )
   })
 
   it('should handle request errors', async () => {
@@ -387,7 +391,11 @@ describe('subjectPublish', () => {
       },
     })
 
-    expect(connection.publish).toHaveBeenCalledWith('test.publish', { msg: 'hello' }, undefined)
+    expect(connection.publish).toHaveBeenCalledWith(
+      'test.publish',
+      { msg: 'hello' },
+      expect.objectContaining({ headers: expect.anything() }),
+    )
   })
 
   it('should call onPublishResult with ok on success', () => {
@@ -419,7 +427,11 @@ describe('subjectPublish', () => {
       },
     })
 
-    expect(connection.publish).toHaveBeenCalledWith('test.publish', 'data', options)
+    expect(connection.publish).toHaveBeenCalledWith(
+      'test.publish',
+      'data',
+      expect.objectContaining({ headers: expect.anything() }),
+    )
   })
 
   it('should call onPublishResult with error on failure', () => {

@@ -2,10 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createActor, fromPromise, createMachine, sendParent } from 'xstate'
 import { natsMachine } from './root'
 
-vi.mock('@nats-io/nats-core', () => ({
-  wsconnect: vi.fn(),
-  credsAuthenticator: vi.fn(),
-}))
+vi.mock('@nats-io/nats-core', async () => {
+  const actual = await vi.importActual<typeof import('@nats-io/nats-core')>('@nats-io/nats-core')
+  return {
+    ...actual,
+    wsconnect: vi.fn(),
+    credsAuthenticator: vi.fn(),
+  }
+})
 
 vi.mock('@nats-io/kv', () => ({
   Kvm: vi.fn().mockImplementation(() => ({})),

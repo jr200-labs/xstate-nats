@@ -2,9 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createActor, createMachine, assign, fromPromise, sendTo, setup } from 'xstate'
 import { subjectManagerLogic } from './subject'
 
-vi.mock('@nats-io/nats-core', () => ({
-  wsconnect: vi.fn(),
-}))
+vi.mock('@nats-io/nats-core', async () => {
+  const actual = await vi.importActual<typeof import('@nats-io/nats-core')>('@nats-io/nats-core')
+  return {
+    ...actual,
+    wsconnect: vi.fn(),
+  }
+})
 
 function createMockConnection() {
   return {
@@ -195,7 +199,11 @@ describe('subjectManagerLogic', () => {
       payload: { msg: 'hello' },
     })
 
-    expect(connection.publish).toHaveBeenCalledWith('test.pub', { msg: 'hello' }, undefined)
+    expect(connection.publish).toHaveBeenCalledWith(
+      'test.pub',
+      { msg: 'hello' },
+      expect.objectContaining({ headers: expect.anything() }),
+    )
     parentActor.stop()
   })
 
@@ -214,7 +222,11 @@ describe('subjectManagerLogic', () => {
       callback,
     })
 
-    expect(connection.request).toHaveBeenCalledWith('test.req', { data: 1 }, undefined)
+    expect(connection.request).toHaveBeenCalledWith(
+      'test.req',
+      { data: 1 },
+      expect.objectContaining({ headers: expect.anything() }),
+    )
     parentActor.stop()
   })
 

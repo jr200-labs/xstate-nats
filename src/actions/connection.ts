@@ -10,6 +10,7 @@ import {
 import { KvEntry } from '@nats-io/kv'
 import { type AuthConfig } from './types'
 import { sendParent } from 'xstate'
+import { withSpan } from '../telemetry'
 
 const makeAuthConfig = (auth?: AuthConfig) => {
   if (!auth) {
@@ -68,7 +69,16 @@ export const connectToNats = fromPromise(
             sendParent({ type: 'NATS_CONNECTION.DISCONNECTED', status })
             break
           case 'reconnect':
-            sendParent({ type: 'NATS_CONNECTION.RECONNECT', status })
+            // Per-event span so reconnect attempts become discoverable in
+            // the trace backend (searchable, durations, span counts).
+            withSpan(
+              'xstate.nats.reconnect',
+              'xstate.nats.error',
+              { 'reconnect.type': type },
+              () => {
+                sendParent({ type: 'NATS_CONNECTION.RECONNECT', status })
+              },
+            )
             break
           case 'error':
             sendParent({ type: 'NATS_CONNECTION.ERROR', status })
@@ -83,10 +93,24 @@ export const connectToNats = fromPromise(
             // console.debug('Received ping, pong sent automatically')
             break
           case 'forceReconnect':
-            sendParent({ type: 'NATS_CONNECTION.RECONNECT', status })
+            withSpan(
+              'xstate.nats.reconnect',
+              'xstate.nats.error',
+              { 'reconnect.type': type },
+              () => {
+                sendParent({ type: 'NATS_CONNECTION.RECONNECT', status })
+              },
+            )
             break
           case 'reconnecting':
-            sendParent({ type: 'NATS_CONNECTION.RECONNECTING', status })
+            withSpan(
+              'xstate.nats.reconnect',
+              'xstate.nats.error',
+              { 'reconnect.type': type },
+              () => {
+                sendParent({ type: 'NATS_CONNECTION.RECONNECTING', status })
+              },
+            )
             break
           case 'slowConsumer':
             console.debug('SLOW_CONSUMER', status)

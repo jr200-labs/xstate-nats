@@ -7,6 +7,12 @@ import {
   SubscriptionOptions,
 } from '@nats-io/nats-core'
 import { parseNatsResult } from './connection'
+import {
+  extractContextFromHeaders,
+  injectContextIntoHeaders,
+  recordError,
+  withSpan,
+} from '../telemetry'
 
 export type SubjectSubscriptionConfig = {
   subject: string
@@ -46,17 +52,41 @@ export const subjectConsolidateState = ({
   for (const [subject, subscriptionConfig] of targetSubscriptions) {
     if (!currentSubscriptions.has(subject)) {
       try {
-        const sub = connection.subscribe(subject, subscriptionConfig.opts)
+        // Short span around the synchronous subscribe() call. The iterator
+        // below is long-lived; we don't span its whole lifetime (indefinite
+        // spans are anti-pattern in most tracing backends).
+        const sub = withSpan('xstate.nats.subscribe', 'xstate.nats.error', { subject }, () =>
+          connection.subscribe(subject, subscriptionConfig.opts),
+        ) as Subscription
 
-        // Set up the message handler
+        // Message loop: each received message starts its own span, parented
+        // on the traceparent extracted from the message headers (OTel
+        // messaging semconv). If the publisher did not propagate context the
+        // extracted context falls back to the ambient one, so the span
+        // simply becomes a root.
         ;(async () => {
           try {
             for await (const msg of sub) {
-              try {
-                subscriptionConfig?.callback(parseNatsResult(msg))
-              } catch (callbackError) {
-                console.error(`Callback error for subject "${subject}"`, callbackError)
-              }
+              const parentCtx = extractContextFromHeaders((msg as Msg).headers)
+              await withSpan(
+                'xstate.nats.message',
+                'xstate.nats.error',
+                {
+                  subject,
+                  'payload.bytes': (msg as Msg).data?.length,
+                },
+                (span) => {
+                  try {
+                    subscriptionConfig?.callback(parseNatsResult(msg))
+                  } catch (callbackError) {
+                    // Record on span AND preserve the existing console.error
+                    // so consumers without OTel still see the failure.
+                    recordError(span, 'xstate.nats.error', callbackError)
+                    console.error(`Callback error for subject "${subject}"`, callbackError)
+                  }
+                },
+                parentCtx,
+              )
             }
           } catch (iteratorError) {
             console.error(`Iterator error for subject "${subject}"`, iteratorError)
@@ -91,14 +121,44 @@ export const subjectRequest = ({
     throw new Error('NATS connection is not available')
   }
 
-  connection
-    .request(subject, payload, opts)
-    .then((msg: Msg) => {
-      callback(parseNatsResult(msg))
-    })
-    .catch((err) => {
-      console.error(`RequestReply error for subject "${subject}"`, err)
-    })
+  const payloadBytes =
+    payload instanceof Uint8Array
+      ? payload.byteLength
+      : typeof payload === 'string'
+        ? payload.length
+        : undefined
+
+  void withSpan(
+    'xstate.nats.request',
+    'xstate.nats.error',
+    {
+      subject,
+      'payload.bytes': payloadBytes,
+      'timeout.ms': opts?.timeout,
+    },
+    (span) => {
+      // Inject INSIDE the span so the replying service parents its handler
+      // span on this request span (not on an ambient context). RequestOptions
+      // declares `timeout` as required but nats-core only enforces it when
+      // opts is provided; cast preserves the "no opts = use conn default"
+      // contract.
+      const headers = injectContextIntoHeaders(opts?.headers)
+      const requestOpts = (opts ? { ...opts, headers } : { headers }) as RequestOptions
+
+      return connection
+        .request(subject, payload, requestOpts)
+        .then((msg: Msg) => {
+          callback(parseNatsResult(msg))
+        })
+        .catch((err) => {
+          // Record on span manually so we can swallow the rejection here —
+          // the original fire-and-forget API didn't propagate request errors
+          // to callers and changing that now would be a breaking behaviour.
+          recordError(span, 'xstate.nats.error', err)
+          console.error(`RequestReply error for subject "${subject}"`, err)
+        })
+    },
+  )
 }
 
 export const subjectPublish = ({
@@ -117,8 +177,26 @@ export const subjectPublish = ({
     throw new Error('NATS connection is not available')
   }
 
+  const payloadBytes =
+    payload instanceof Uint8Array
+      ? payload.byteLength
+      : typeof payload === 'string'
+        ? payload.length
+        : undefined
+
   try {
-    connection.publish(subject, payload, options)
+    withSpan(
+      'xstate.nats.publish',
+      'xstate.nats.error',
+      { subject, 'payload.bytes': payloadBytes },
+      () => {
+        // Inject INSIDE the span so downstream subscribers see THIS span as
+        // parent instead of whatever was ambient before publish.
+        const headers = injectContextIntoHeaders(options?.headers)
+        const publishOpts: PublishOptions = { ...(options ?? {}), headers }
+        connection.publish(subject, payload, publishOpts)
+      },
+    )
     onPublishResult?.({ ok: true })
   } catch (callbackError) {
     console.error(`Publish callback error for subject "${subject}"`, callbackError)

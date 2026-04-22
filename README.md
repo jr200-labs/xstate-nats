@@ -218,6 +218,60 @@ auth: {
 - `KV.UNSUBSCRIBE`: Unsubscribe from KV changes
 - `KV.UNSUBSCRIBE_ALL`: Unsubscribe from all KV changes
 
+## OpenTelemetry
+
+This library emits OpenTelemetry spans for NATS operations and propagates W3C
+trace context across the wire so a single trace can span publisher, subscriber,
+and request/reply replier.
+
+### Emitted spans
+
+| Span name               | Emitted by           | Attributes                               |
+| ----------------------- | -------------------- | ---------------------------------------- |
+| `xstate.nats.subscribe` | `SUBJECT.SUBSCRIBE`  | `subject`                                |
+| `xstate.nats.message`   | per received message | `subject`, `payload.bytes`               |
+| `xstate.nats.publish`   | `SUBJECT.PUBLISH`    | `subject`, `payload.bytes`               |
+| `xstate.nats.request`   | `SUBJECT.REQUEST`    | `subject`, `payload.bytes`, `timeout.ms` |
+| `xstate.nats.reconnect` | NATS status loop     | `reconnect.type`                         |
+| `xstate.nats.kv.watch`  | `KV.SUBSCRIBE`       | `bucket`, `key`                          |
+| `xstate.nats.kv.entry`  | per KV watch entry   | `bucket`, `key`, `operation`             |
+
+All error paths record exceptions on the active span, set span status to
+`ERROR`, and emit a named event (`xstate.nats.error` / `xstate.nats.kv.error`)
+with a truncated stack.
+
+### Enabling tracing
+
+`@opentelemetry/api` is a peer dependency — the consumer controls the installed
+version and registers the SDK. If no provider is registered all telemetry calls
+become no-ops. Minimal setup:
+
+```ts
+import { trace, propagation, context } from '@opentelemetry/api'
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks'
+import { W3CTraceContextPropagator } from '@opentelemetry/core'
+import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base'
+
+const provider = new BasicTracerProvider({
+  spanProcessors: [
+    /* your exporter */
+  ],
+})
+trace.setGlobalTracerProvider(provider)
+propagation.setGlobalPropagator(new W3CTraceContextPropagator())
+
+const ctxMgr = new AsyncLocalStorageContextManager()
+ctxMgr.enable()
+context.setGlobalContextManager(ctxMgr)
+```
+
+### Context propagation
+
+Publish and request operations inject `traceparent` into the outgoing NATS
+headers; received messages extract the traceparent and parent their
+`xstate.nats.message` span on it. Downstream services that propagate the header
+appear as children of the originating publisher/requester span.
+
 ## Examples
 
 Check out the [React example](./examples/react-test/) for a complete working implementation.

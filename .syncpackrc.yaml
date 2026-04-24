@@ -1,6 +1,37 @@
-# syncpack config — enforce semver range consistency
+# Canonical syncpack baseline from jr200-labs/github-action-templates.
+#
+# This file is synced into consumer repos via sync.sh. Do NOT edit it
+# in consumer repos — edits will be overwritten on next sync. To add
+# repo-specific rules, commit a sibling `.syncpackrc.local.yaml`; the
+# merge step in sync.sh produces the final `.syncpackrc.yaml`.
+#
+# Merge semantics: `local` groups come first, `base` groups last.
+# Syncpack evaluates groups first-match-wins, so the caret catch-all
+# below MUST stay last. Repo-specific exact pins belong in `local`.
+#
+# Peer-ignore pattern (opt-in, JRL-29):
+#
+#   # .syncpackrc.local.yaml
+#   versionGroups:
+#     - label: "Peer ranges broader than install pins — see JRL-29"
+#       dependencyTypes: ["peer"]
+#       dependencies:
+#         - "@duckdb/duckdb-wasm"
+#         - "apache-arrow"
+#       isIgnored: true
+#
+# Only needed for libs that expose WASM/native-binding packages as
+# peerDependencies with ranges deliberately broader than the dev
+# install pin.
+
 semverGroups:
-  - label: 'Default — caret ranges'
+  - label: "Default — caret ranges"
     dependencies:
-      - '**'
-    range: '^'
+      - "**"
+    range: "^"
+
+versionGroups:
+  - label: "Ignore example apps — convention: *-react-test workspace packages"
+    packages:
+      - "*-react-test"
+    isIgnored: true

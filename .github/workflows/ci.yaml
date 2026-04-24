@@ -21,12 +21,15 @@ jobs:
   commitlint:
     uses: jr200-labs/github-action-templates/.github/workflows/lint_commits.yaml@master
 
+  lint-workflow-runners:
+    uses: jr200-labs/github-action-templates/.github/workflows/lint_workflow_runners.yaml@master
+
   # JRL-30 drift check: re-run sync.sh against github-action-templates@master
   # and fail if any tracked synced file (e.g. .syncpackrc.yaml,
   # release-please-config.json) drifts from the canonical source.
   # Promote to a shared reusable workflow once the pattern proves out.
   shared-sync-drift:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.RUNNER_PROFILES)[vars.RUNNER_PROFILE].default }}
     steps:
       - uses: actions/checkout@v5
 

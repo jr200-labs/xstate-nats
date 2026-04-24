@@ -5,6 +5,12 @@ on:
     branches: [master]
   workflow_dispatch:
 
+# Required by the ci_npmjs.yaml reusable workflow's size-limit job
+# (gated on `run-size-limit` but permissions are validated upfront).
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   ci:
     uses: jr200-labs/github-action-templates/.github/workflows/ci_npmjs.yaml@master
@@ -20,7 +26,7 @@ jobs:
   # release-please-config.json) drifts from the canonical source.
   # Promote to a shared reusable workflow once the pattern proves out.
   shared-sync-drift:
-    runs-on: ${{ fromJSON(vars.RUNNER_PROFILES)[vars.RUNNER_PROFILE].default }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 

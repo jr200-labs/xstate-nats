@@ -31,7 +31,7 @@ jobs:
   shared-sync-drift:
     runs-on: ${{ fromJSON(vars.RUNNER_PROFILES)[vars.RUNNER_PROFILE].default }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install yq
         run: |

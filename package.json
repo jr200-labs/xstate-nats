@@ -9,7 +9,7 @@
     "url": "git+https://github.com/jr200-labs/xstate-nats.git"
   },
   "type": "module",
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@11.0.8",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

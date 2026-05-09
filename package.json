@@ -9,7 +9,7 @@
     "url": "git+https://github.com/jr200-labs/xstate-nats.git"
   },
   "type": "module",
-  "packageManager": "pnpm@11.0.8",
+  "packageManager": "pnpm@11.0.9",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -42,10 +42,10 @@
     "websocket"
   ],
   "dependencies": {
-    "@nats-io/jetstream": "^3.3.1",
-    "@nats-io/kv": "^3.3.1",
-    "@nats-io/nats-core": "^3.3.1",
-    "@nats-io/obj": "^3.3.1",
+    "@nats-io/jetstream": "^3.4.0",
+    "@nats-io/kv": "^3.4.0",
+    "@nats-io/nats-core": "^3.4.0",
+    "@nats-io/obj": "^3.4.0",
     "xstate": "^5.31.0"
   },
   "peerDependencies": {

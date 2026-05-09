@@ -1,0 +1,4 @@
+workflows:
+  - hygiene
+  - node
+  - release

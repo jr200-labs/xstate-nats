@@ -1,0 +1,16 @@
+name: ci-node
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# pull-requests: write is required by the size-limit job in
+# ci_npmjs.yaml — it posts a comment on the PR. Only top-level
+# permissions cascade into the reusable.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ci:
+    uses: jr200-labs/github-action-templates/.github/workflows/ci_npmjs.yaml@master

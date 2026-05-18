@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.2](https://github.com/jr200-labs/xstate-nats/compare/v0.9.1...v0.9.2) (2026-05-18)
+
+
+### Bug Fixes
+
+* **deps:** update actions/create-github-app-token action to v3.2.0 ([#35](https://github.com/jr200-labs/xstate-nats/issues/35)) ([2aae01f](https://github.com/jr200-labs/xstate-nats/commit/2aae01fc70c05ec415f6b9c33b689d6d23d24555))
+* **deps:** update all non-major dependencies ([#34](https://github.com/jr200-labs/xstate-nats/issues/34)) ([d2e76ca](https://github.com/jr200-labs/xstate-nats/commit/d2e76ca6bc447e7fed3d9a8bb9088ad5cdd524f4))
+* **deps:** update all non-major dependencies ([#36](https://github.com/jr200-labs/xstate-nats/issues/36)) ([50bbbc3](https://github.com/jr200-labs/xstate-nats/commit/50bbbc3a6ab67569d2b6d95c13c60866b934dbf0))
+* **deps:** update dependency xstate to ^5.31.1 ([#32](https://github.com/jr200-labs/xstate-nats/issues/32)) ([7ba2ecf](https://github.com/jr200-labs/xstate-nats/commit/7ba2ecf6962f57e72396591a39e3c6965e9b0fd6))
+
 ## [0.9.1](https://github.com/jr200-labs/xstate-nats/compare/v0.9.0...v0.9.1) (2026-05-09)
 
 

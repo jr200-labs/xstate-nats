@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.3](https://github.com/jr200-labs/xstate-nats/compare/v0.9.2...v0.9.3) (2026-05-23)
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#37](https://github.com/jr200-labs/xstate-nats/issues/37)) ([8ce23b1](https://github.com/jr200-labs/xstate-nats/commit/8ce23b1e0746c24e1fa57bd3582d8fb4b7ee4fe6))
+
 ## [0.9.2](https://github.com/jr200-labs/xstate-nats/compare/v0.9.1...v0.9.2) (2026-05-18)
 
 

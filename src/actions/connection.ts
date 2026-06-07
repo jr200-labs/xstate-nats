@@ -55,13 +55,16 @@ export const connectToNats = fromPromise(
       ...input.opts,
       ...makeAuthConfig(input.auth),
     }
+    const debug = Boolean(mergedOpts.debug)
     const nc = await wsconnect(mergedOpts)
 
     // bug: self refers to 'this' promise, which is short-lived....
     // TODO: Emit status events into the machine instead
     ;(async () => {
       for await (const status of nc.status()) {
-        console.log('Status loop received status', status)
+        if (debug) {
+          console.log('Status loop received status', status)
+        }
         const { type } = status
 
         switch (type) {
@@ -123,7 +126,9 @@ export const connectToNats = fromPromise(
             break
         }
       }
-      console.log('Exiting nats status loop')
+      if (debug) {
+        console.log('Exiting nats status loop')
+      }
     })()
 
     return nc

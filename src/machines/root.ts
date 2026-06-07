@@ -88,8 +88,10 @@ export const natsMachine = setup({
   on: {
     'NATS_CONNECTION.*': {
       actions: [
-        ({ event }: { event: any }) => {
-          console.log('root received NATS status event', event)
+        ({ context, event }: { context: Context; event: any }) => {
+          if (context.natsConfig?.opts.debug) {
+            console.log('root received NATS status event', event)
+          }
         },
       ],
     },
@@ -185,7 +187,9 @@ export const natsMachine = setup({
     connected: {
       entry: [
         (event) => {
-          console.log('CONNECTED', event.context.connection?.getServer())
+          if (event.context.natsConfig?.opts.debug) {
+            console.log('CONNECTED', event.context.connection?.getServer())
+          }
         },
       ],
       on: {
@@ -197,8 +201,10 @@ export const natsMachine = setup({
         },
         'SUBJECT.*': {
           actions: [
-            ({ event }: any) => {
-              console.log('xstat-nats forwarding subject event', event)
+            ({ context, event }: { context: Context; event: any }) => {
+              if (context.natsConfig?.opts.debug) {
+                console.log('xstate-nats forwarding subject event', event)
+              }
             },
             sendTo(
               'subject',
@@ -210,8 +216,10 @@ export const natsMachine = setup({
         },
         'KV.*': {
           actions: [
-            ({ event }: any) => {
-              console.log('xstat-nats forwarding kv event', event)
+            ({ context, event }: { context: Context; event: any }) => {
+              if (context.natsConfig?.opts.debug) {
+                console.log('xstate-nats forwarding kv event', event)
+              }
             },
             sendTo('kv', ({ event, context }: { event: KvExternalEvents; context: Context }) => {
               return { ...event, connection: context.connection }
@@ -230,7 +238,9 @@ export const natsMachine = setup({
     closing: {
       entry: [
         (event) => {
-          console.log('CLOSING', event.context.connection?.getServer())
+          if (event.context.natsConfig?.opts.debug) {
+            console.log('CLOSING', event.context.connection?.getServer())
+          }
         },
         sendTo('subject', { type: 'SUBJECT.DISCONNECTED' }),
         sendTo('kv', { type: 'KV.DISCONNECTED' }),

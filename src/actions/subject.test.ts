@@ -344,7 +344,8 @@ describe('subjectRequest', () => {
 
   it('should handle request errors', async () => {
     const connection = createMockConnection()
-    connection.request.mockRejectedValue(new Error('request failed'))
+    const requestError = new Error('request failed')
+    connection.request.mockRejectedValue(requestError)
 
     const callback = vi.fn()
     const onRequestResult = vi.fn()
@@ -361,6 +362,34 @@ describe('subjectRequest', () => {
     })
 
     await vi.waitFor(() => {
+      expect(onRequestResult).toHaveBeenCalledWith({ ok: false, error: requestError })
+    })
+
+    expect(consoleSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('RequestReply error'),
+      expect.any(Error),
+    )
+    consoleSpy.mockRestore()
+    expect(callback).not.toHaveBeenCalled()
+  })
+
+  it('should log request errors for callers without onRequestResult', async () => {
+    const connection = createMockConnection()
+    connection.request.mockRejectedValue(new Error('request failed'))
+
+    const callback = vi.fn()
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    subjectRequest({
+      input: {
+        connection,
+        subject: 'test.fail',
+        payload: {},
+        callback,
+      },
+    })
+
+    await vi.waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining('RequestReply error'),
         expect.any(Error),
@@ -369,7 +398,6 @@ describe('subjectRequest', () => {
 
     consoleSpy.mockRestore()
     expect(callback).not.toHaveBeenCalled()
-    expect(onRequestResult).toHaveBeenCalledWith({ ok: false, error: expect.any(Error) })
   })
 })
 

@@ -159,8 +159,11 @@ export const subjectRequest = ({
           // the original fire-and-forget API didn't propagate request errors
           // to callers and changing that now would be a breaking behaviour.
           recordError(span, 'xstate.nats.error', err)
-          console.error(`RequestReply error for subject "${subject}"`, err)
-          onRequestResult?.({ ok: false, error: err as Error })
+          const error = err instanceof Error ? err : new Error(String(err))
+          onRequestResult?.({ ok: false, error })
+          if (!onRequestResult) {
+            console.error(`RequestReply error for subject "${subject}"`, err)
+          }
         })
     },
   )

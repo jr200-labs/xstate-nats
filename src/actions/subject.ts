@@ -20,6 +20,8 @@ export type SubjectSubscriptionConfig = {
   opts?: SubscriptionOptions
 }
 
+export type RequestResult = { ok: true } | { ok: false; error: Error }
+
 export const subjectConsolidateState = ({
   input,
 }: {
@@ -114,9 +116,10 @@ export const subjectRequest = ({
     payload: any
     opts?: RequestOptions
     callback: (data: any) => void
+    onRequestResult?: (result: RequestResult) => void
   }
 }) => {
-  const { connection, subject, payload, opts, callback } = input
+  const { connection, subject, payload, opts, callback, onRequestResult } = input
   if (!connection) {
     throw new Error('NATS connection is not available')
   }
@@ -149,6 +152,7 @@ export const subjectRequest = ({
         .request(subject, payload, requestOpts)
         .then((msg: Msg) => {
           callback(parseNatsResult(msg))
+          onRequestResult?.({ ok: true })
         })
         .catch((err) => {
           // Record on span manually so we can swallow the rejection here —
@@ -156,6 +160,7 @@ export const subjectRequest = ({
           // to callers and changing that now would be a breaking behaviour.
           recordError(span, 'xstate.nats.error', err)
           console.error(`RequestReply error for subject "${subject}"`, err)
+          onRequestResult?.({ ok: false, error: err as Error })
         })
     },
   )

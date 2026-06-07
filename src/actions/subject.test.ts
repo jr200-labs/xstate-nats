@@ -317,6 +317,7 @@ describe('subjectRequest', () => {
     connection.request.mockResolvedValue(mockMsg)
 
     const callback = vi.fn()
+    const onRequestResult = vi.fn()
     subjectRequest({
       input: {
         connection,
@@ -324,6 +325,7 @@ describe('subjectRequest', () => {
         payload: { data: 1 },
         opts: { timeout: 5000 } as any,
         callback,
+        onRequestResult,
       },
     })
 
@@ -331,6 +333,7 @@ describe('subjectRequest', () => {
     await vi.waitFor(() => {
       expect(callback).toHaveBeenCalled()
     })
+    expect(onRequestResult).toHaveBeenCalledWith({ ok: true })
 
     expect(connection.request).toHaveBeenCalledWith(
       'test.request',
@@ -344,6 +347,7 @@ describe('subjectRequest', () => {
     connection.request.mockRejectedValue(new Error('request failed'))
 
     const callback = vi.fn()
+    const onRequestResult = vi.fn()
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     subjectRequest({
@@ -352,6 +356,7 @@ describe('subjectRequest', () => {
         subject: 'test.fail',
         payload: {},
         callback,
+        onRequestResult,
       },
     })
 
@@ -364,6 +369,7 @@ describe('subjectRequest', () => {
 
     consoleSpy.mockRestore()
     expect(callback).not.toHaveBeenCalled()
+    expect(onRequestResult).toHaveBeenCalledWith({ ok: false, error: expect.any(Error) })
   })
 })
 

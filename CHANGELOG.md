@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.9](https://github.com/jr200-labs/xstate-nats/compare/v0.9.8...v0.9.9) (2026-06-07)
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies to shared-v0.1.7 ([#56](https://github.com/jr200-labs/xstate-nats/issues/56)) ([8e607df](https://github.com/jr200-labs/xstate-nats/commit/8e607df4fee1265534e0a833445da7aaf3f4fe9f))
+* report nats request failures to callers ([#57](https://github.com/jr200-labs/xstate-nats/issues/57)) ([831a9ea](https://github.com/jr200-labs/xstate-nats/commit/831a9ea6ce4d582399a8705f8d1ab9cc38b3d4f8))
+
 ## [0.9.8](https://github.com/jr200-labs/xstate-nats/compare/v0.9.7...v0.9.8) (2026-06-07)
 
 

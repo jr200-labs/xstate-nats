@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.5](https://github.com/jr200-labs/xstate-nats/compare/v0.9.4...v0.9.5) (2026-06-07)
+
+
+### Bug Fixes
+
+* report subject request failures ([#43](https://github.com/jr200-labs/xstate-nats/issues/43)) ([43ad9cc](https://github.com/jr200-labs/xstate-nats/commit/43ad9cce3de06f7fb7f6efc543c50acd62152875))
+
 ## [0.9.4](https://github.com/jr200-labs/xstate-nats/compare/v0.9.3...v0.9.4) (2026-06-06)
 
 

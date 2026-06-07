@@ -1,0 +1,48 @@
+# GENERATED/SHARED WORKFLOW: copied into consuming repos by sync-shared.
+# Do not edit in consuming repos; change jr200-labs/github-action-templates and sync.
+name: publish-npm-package
+
+# Triggered by release-please publishing a tag. Builds and publishes the
+# package to npmjs.com via pnpm publish. Verbatim across consumers; each
+# consumer must set the NPMJS_API_TOKEN secret.
+
+on:
+  repository_dispatch:
+    types: [release-published]
+  workflow_dispatch:
+    inputs:
+      checkout-ref:
+        description: "checkout ref"
+        required: false
+        type: string
+        default: "refs/heads/master"
+      pnpm-run-test:
+        description: "Run pnpm test:run before publish"
+        required: false
+        type: string
+        default: "true"
+      pnpm-publish-args:
+        description: "Additional pnpm publish args"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  configure:
+    uses: jr200-labs/github-action-templates/.github/workflows/preconfigure.yaml@master
+    with:
+      event_name: ${{ toJson(github.event_name) }}
+      event: ${{ toJson(github.event) }}
+
+  main:
+    needs: configure
+    uses: jr200-labs/github-action-templates/.github/workflows/build_publish_npmjs.yaml@master
+    with:
+      checkout-ref: ${{ fromJson(needs.configure.outputs.context).checkout-ref }}
+      pnpm-run-test: ${{ github.event.inputs.pnpm-run-test || 'true' }}
+      pnpm-publish-args: ${{ github.event.inputs.pnpm-publish-args || '' }}
+    secrets:
+      npmjs_api_token: ${{ secrets.NPMJS_API_TOKEN }}

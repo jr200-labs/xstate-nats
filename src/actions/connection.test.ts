@@ -222,7 +222,7 @@ describe('connectToNats', () => {
     const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
 
     const actor = createActor(connectToNats, {
-      input: { opts: { servers: ['ws://localhost:4222'] } },
+      input: { opts: { servers: ['ws://localhost:4222'], debug: true } },
     })
 
     const outputPromise = new Promise<any>((resolve) => {

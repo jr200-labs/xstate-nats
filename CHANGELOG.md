@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.10](https://github.com/jr200-labs/xstate-nats/compare/v0.9.9...v0.9.10) (2026-06-08)
+
+
+### Bug Fixes
+
+* handle nats reconfiguration lifecycle ([#60](https://github.com/jr200-labs/xstate-nats/issues/60)) ([4c90f5f](https://github.com/jr200-labs/xstate-nats/commit/4c90f5f3844997f6107ac9899dbe56d7ec2888c9))
+
 ## [0.9.9](https://github.com/jr200-labs/xstate-nats/compare/v0.9.8...v0.9.9) (2026-06-07)
 
 

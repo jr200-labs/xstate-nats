@@ -120,6 +120,8 @@ export const subjectManagerLogic = setup({
         assign({
           cachedConnection: null,
           subscriptions: new Map<string, Subscription>(),
+          syncRequired: ({ context }) =>
+            context.subscriptionConfigs.size > 0 ? Math.max(context.syncRequired, 1) : context.syncRequired,
         }),
         sendParent({ type: 'SUBJECT.DISCONNECTED' }),
       ],

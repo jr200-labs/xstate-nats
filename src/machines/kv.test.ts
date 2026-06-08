@@ -82,7 +82,12 @@ function createParentMachine(kvLogic?: any) {
         actions: assign({ childState: 'connected' }),
       },
       'KV.DISCONNECTED': {
-        actions: assign({ childState: 'disconnected' }),
+        actions: [
+          sendTo('kv', ({ event }: any) => {
+            return { ...event }
+          }),
+          assign({ childState: 'disconnected' }),
+        ],
       },
     },
     states: {
@@ -210,6 +215,50 @@ describe('kvManagerLogic', () => {
       const childSnap = parentActor.getSnapshot().children.kv?.getSnapshot()
       expect(childSnap?.value).toBe('kv_connected')
     })
+    parentActor.stop()
+  })
+
+  it('should resync retained subscription configs after disconnect and reconnect', async () => {
+    const syncInputs: any[] = []
+    const kvWithMockSync = kvManagerLogic.provide({
+      actors: {
+        kvConsolidateState: fromPromise(async ({ input }) => {
+          syncInputs.push(input)
+          return {
+            subscriptions: new Map([['Pair(b, k)', {} as any]]),
+          }
+        }),
+      },
+    })
+    const parentActor = createActor(createParentMachine(kvWithMockSync))
+    parentActor.start()
+
+    parentActor.send({
+      type: 'KV.SUBSCRIBE',
+      config: { bucket: 'b', key: 'k', callback: vi.fn() },
+    })
+
+    const firstConnection = createMockConnection()
+    parentActor.send({ type: 'KV.CONNECT', connection: firstConnection })
+    await vi.waitFor(() => {
+      expect(syncInputs).toHaveLength(1)
+    })
+
+    parentActor.send({ type: 'KV.DISCONNECTED' })
+    const disconnectedCtx = parentActor.getSnapshot().children.kv?.getSnapshot()?.context
+    expect(disconnectedCtx?.subscriptionConfigs.has('Pair(b, k)')).toBe(true)
+    expect(disconnectedCtx?.subscriptions.size).toBe(0)
+    expect(disconnectedCtx?.syncRequired).toBe(1)
+
+    const secondConnection = createMockConnection()
+    parentActor.send({ type: 'KV.CONNECT', connection: secondConnection })
+    await vi.waitFor(() => {
+      expect(syncInputs).toHaveLength(2)
+    })
+
+    const childSnap = parentActor.getSnapshot().children.kv?.getSnapshot()
+    expect(childSnap?.value).toBe('kv_connected')
+    expect(syncInputs[1].connection).toBe(secondConnection)
     parentActor.stop()
   })
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.14](https://github.com/jr200-labs/xstate-nats/compare/v0.9.13...v0.9.14) (2026-06-08)
+
+
+### Features
+
+* add nats traffic metrics ([#68](https://github.com/jr200-labs/xstate-nats/issues/68)) ([3633ead](https://github.com/jr200-labs/xstate-nats/commit/3633ead5c959e37e96dc8703e2c7facd26f93c0d))
+
 ## [0.9.13](https://github.com/jr200-labs/xstate-nats/compare/v0.9.12...v0.9.13) (2026-06-08)
 
 

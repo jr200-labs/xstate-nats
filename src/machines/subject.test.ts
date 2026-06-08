@@ -18,7 +18,9 @@ function createMockConnection() {
         next: () => new Promise(() => {}),
       }),
     }),
-    request: vi.fn().mockResolvedValue({ json: () => ({}), string: () => '{}' }),
+    request: vi
+      .fn()
+      .mockResolvedValue({ data: new Uint8Array([1, 2, 3]), json: () => ({}), string: () => '{}' }),
     publish: vi.fn(),
   } as any
 }
@@ -57,6 +59,9 @@ function createParentMachine() {
           }),
           assign({ childState: 'disconnected' }),
         ],
+      },
+      'METRICS.*': {
+        actions: sendTo('subject', ({ event }: any) => event),
       },
     },
     states: {
@@ -241,6 +246,26 @@ describe('subjectManagerLogic', () => {
     parentActor.stop()
   })
 
+  it('should count publish upload bytes', async () => {
+    const parentActor = createActor(createParentMachine())
+    parentActor.start()
+
+    parentActor.send({ type: 'SUBJECT.CONNECT', connection: createMockConnection() })
+    parentActor.send({
+      type: 'SUBJECT.PUBLISH',
+      subject: 'test.pub',
+      payload: { msg: 'hello' },
+    })
+
+    await vi.waitFor(() => {
+      const metrics = parentActor.getSnapshot().children.subject?.getSnapshot()
+        ?.context.trafficMetrics
+      expect(metrics?.uploadBytes).toBe(15)
+      expect(metrics?.bySource['nats.publish']).toEqual({ uploadBytes: 15, downloadBytes: 0 })
+    })
+    parentActor.stop()
+  })
+
   it('should handle SUBJECT.REQUEST when connected', () => {
     const parentActor = createActor(createParentMachine())
     parentActor.start()
@@ -261,6 +286,66 @@ describe('subjectManagerLogic', () => {
       { data: 1 },
       expect.objectContaining({ headers: expect.anything() }),
     )
+    parentActor.stop()
+  })
+
+  it('should count request upload and reply download bytes', async () => {
+    const parentActor = createActor(createParentMachine())
+    parentActor.start()
+
+    parentActor.send({ type: 'SUBJECT.CONNECT', connection: createMockConnection() })
+    parentActor.send({
+      type: 'SUBJECT.REQUEST',
+      subject: 'test.req',
+      payload: { data: 1 },
+      callback: vi.fn(),
+    })
+
+    await vi.waitFor(() => {
+      const metrics = parentActor.getSnapshot().children.subject?.getSnapshot()
+        ?.context.trafficMetrics
+      expect(metrics?.uploadBytes).toBe(10)
+      expect(metrics?.downloadBytes).toBe(3)
+      expect(metrics?.bySource['nats.request']).toEqual({ uploadBytes: 10, downloadBytes: 3 })
+    })
+    parentActor.stop()
+  })
+
+  it('should reset upload and download metrics without disconnecting', async () => {
+    const parentActor = createActor(createParentMachine())
+    parentActor.start()
+
+    const connection = createMockConnection()
+    parentActor.send({ type: 'SUBJECT.CONNECT', connection })
+    parentActor.send({
+      type: 'SUBJECT.REQUEST',
+      subject: 'test.req',
+      payload: { data: 1 },
+      callback: vi.fn(),
+    })
+
+    await vi.waitFor(() => {
+      const metrics = parentActor.getSnapshot().children.subject?.getSnapshot()
+        ?.context.trafficMetrics
+      expect(metrics?.downloadBytes).toBe(3)
+    })
+
+    parentActor.send({ type: 'METRICS.RESET_UPLOAD' })
+    await vi.waitFor(() => {
+      const snap = parentActor.getSnapshot().children.subject?.getSnapshot()
+      expect(snap?.value).toBe('subject_connected')
+      expect(snap?.context.cachedConnection).toBe(connection)
+      expect(snap?.context.trafficMetrics.uploadBytes).toBe(0)
+      expect(snap?.context.trafficMetrics.downloadBytes).toBe(3)
+    })
+
+    parentActor.send({ type: 'METRICS.RESET_DOWNLOAD' })
+    await vi.waitFor(() => {
+      const metrics = parentActor.getSnapshot().children.subject?.getSnapshot()
+        ?.context.trafficMetrics
+      expect(metrics?.uploadBytes).toBe(0)
+      expect(metrics?.downloadBytes).toBe(0)
+    })
     parentActor.stop()
   })
 

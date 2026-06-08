@@ -6,6 +6,7 @@ import { connectToNats, disconnectNats } from '../actions/connection'
 import { type AuthConfig } from '../actions/types'
 import { InternalStatusEvents as NatsStatusEvents } from '../actions/connection'
 import { withSpan } from '../telemetry'
+import { NatsTrafficResetEvent } from '../traffic'
 
 export interface NatsDiagnosticsConfig {
   lifecycle?: boolean
@@ -44,6 +45,7 @@ export type ExternalEvents =
   | { type: 'CONNECT' }
   | { type: 'DISCONNECT' }
   | { type: 'RESET' }
+  | NatsTrafficResetEvent
   | SubjectExternalEvents
   | KvExternalEvents
 
@@ -194,6 +196,15 @@ export const natsMachine = setup({
           }
         },
       ],
+    },
+    'METRICS.RESET_UPLOAD': {
+      actions: [sendTo('subject', ({ event }) => event), sendTo('kv', ({ event }) => event)],
+    },
+    'METRICS.RESET_DOWNLOAD': {
+      actions: [sendTo('subject', ({ event }) => event), sendTo('kv', ({ event }) => event)],
+    },
+    'METRICS.RESET_ALL': {
+      actions: [sendTo('subject', ({ event }) => event), sendTo('kv', ({ event }) => event)],
     },
   },
   states: {

@@ -3,9 +3,20 @@ import { jetstream } from '@nats-io/jetstream'
 import { KvEntry, Kvm, KvOptions, KvStatus, KvWatchEntry } from '@nats-io/kv'
 import { assign, sendParent, setup } from 'xstate'
 import { KvSubscriptionKey, KvSubscriptionConfig, kvConsolidateState } from '../actions/kv'
+import {
+  byteLength,
+  createEmptyTrafficMetrics,
+  NatsTrafficMetrics,
+  NatsTrafficRecordEvent,
+  NatsTrafficResetEvent,
+  recordTrafficMetric,
+  resetTrafficAll,
+  resetTrafficDownload,
+  resetTrafficUpload,
+} from '../traffic'
 
 // internal events and events from nats connection
-type InternalEvents = { type: 'ERROR'; error: Error }
+type InternalEvents = { type: 'ERROR'; error: Error } | NatsTrafficRecordEvent
 
 // events which can be sent to the machine from the user
 export type ExternalEvents =
@@ -49,6 +60,7 @@ export type ExternalEvents =
   | { type: 'KV.SUBSCRIBE'; config: KvSubscriptionConfig }
   | { type: 'KV.UNSUBSCRIBE'; bucket: string; key: string }
   | { type: 'KV.UNSUBSCRIBE_ALL' }
+  | NatsTrafficResetEvent
 
 export type Events = InternalEvents | ExternalEvents
 
@@ -60,6 +72,7 @@ export interface Context {
   subscriptions: Map<string, QueuedIterator<KvWatchEntry>>
   subscriptionConfigs: Map<string, KvSubscriptionConfig>
   syncRequired: number
+  trafficMetrics: NatsTrafficMetrics
   error?: Error
 }
 export const kvManagerLogic = setup({
@@ -86,19 +99,53 @@ export const kvManagerLogic = setup({
     subscriptions: new Map<string, QueuedIterator<KvWatchEntry>>(),
     subscriptionConfigs: new Map<string, KvSubscriptionConfig>(),
     syncRequired: 0,
+    trafficMetrics: createEmptyTrafficMetrics(),
   },
   on: {
+    'METRICS.RECORD': {
+      actions: assign({
+        trafficMetrics: ({ context, event }) => recordTrafficMetric(context.trafficMetrics, event),
+      }),
+    },
+    'METRICS.RESET_UPLOAD': {
+      actions: assign({
+        trafficMetrics: ({ context, event }) =>
+          resetTrafficUpload(context.trafficMetrics, event.source),
+      }),
+    },
+    'METRICS.RESET_DOWNLOAD': {
+      actions: assign({
+        trafficMetrics: ({ context, event }) =>
+          resetTrafficDownload(context.trafficMetrics, event.source),
+      }),
+    },
+    'METRICS.RESET_ALL': {
+      actions: assign({
+        trafficMetrics: ({ context, event }) =>
+          resetTrafficAll(context.trafficMetrics, event.source),
+      }),
+    },
     'KV.SUBSCRIBE': {
       actions: [
-        assign({
-          subscriptionConfigs: ({ context, event }) => {
-            const { config } = event
-            const newConfigs = new Map(context.subscriptionConfigs)
-            const newKvKey = KvSubscriptionKey.key(config.bucket, config.key)
-            newConfigs.set(newKvKey, config)
-            return newConfigs
-          },
-          syncRequired: ({ context }) => context.syncRequired + 1,
+        assign(({ context, event, self }) => {
+          if (event.type !== 'KV.SUBSCRIBE') return {}
+
+          const config: KvSubscriptionConfig = {
+            ...event.config,
+            onDownloadBytes: (bytes) =>
+              self.send({
+                type: 'METRICS.RECORD',
+                source: 'nats.kv',
+                downloadBytes: bytes,
+              }),
+          }
+          const newConfigs = new Map(context.subscriptionConfigs)
+          const newKvKey = KvSubscriptionKey.key(config.bucket, config.key)
+          newConfigs.set(newKvKey, config)
+          return {
+            subscriptionConfigs: newConfigs,
+            syncRequired: context.syncRequired + 1,
+          }
         }),
       ],
     },
@@ -143,7 +190,9 @@ export const kvManagerLogic = setup({
           cachedKvm: null,
           subscriptions: new Map<string, QueuedIterator<KvWatchEntry>>(),
           syncRequired: ({ context }) =>
-            context.subscriptionConfigs.size > 0 ? Math.max(context.syncRequired, 1) : context.syncRequired,
+            context.subscriptionConfigs.size > 0
+              ? Math.max(context.syncRequired, 1)
+              : context.syncRequired,
         }),
         sendParent({ type: 'KV.DISCONNECTED' }),
       ],
@@ -250,7 +299,7 @@ export const kvManagerLogic = setup({
           },
         },
         'KV.PUT': {
-          actions: async ({ context, event }) => {
+          actions: async ({ context, event, self }) => {
             try {
               const kv = await context.cachedKvm?.open(event.bucket)
               if (!kv) {
@@ -258,6 +307,11 @@ export const kvManagerLogic = setup({
                 return
               }
 
+              self.send({
+                type: 'METRICS.RECORD',
+                source: 'nats.kv',
+                uploadBytes: byteLength(event.value),
+              })
               await kv.put(event.key, event.value)
               event.onResult({ ok: true })
             } catch (error) {

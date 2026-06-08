@@ -13,11 +13,13 @@ import {
   recordError,
   withSpan,
 } from '../telemetry'
+import { byteLength } from '../traffic'
 
 export type SubjectSubscriptionConfig = {
   subject: string
   callback: (data: any) => void
   opts?: SubscriptionOptions
+  onDownloadBytes?: (bytes: number) => void
 }
 
 export type RequestResult = { ok: true } | { ok: false; error: Error }
@@ -70,15 +72,17 @@ export const subjectConsolidateState = ({
           try {
             for await (const msg of sub) {
               const parentCtx = extractContextFromHeaders((msg as Msg).headers)
+              const payloadBytes = (msg as Msg).data?.length ?? 0
               await withSpan(
                 'xstate.nats.message',
                 'xstate.nats.error',
                 {
                   subject,
-                  'payload.bytes': (msg as Msg).data?.length,
+                  'payload.bytes': payloadBytes,
                 },
                 (span) => {
                   try {
+                    subscriptionConfig.onDownloadBytes?.(payloadBytes)
                     subscriptionConfig?.callback(parseNatsResult(msg))
                   } catch (callbackError) {
                     // Record on span AND preserve the existing console.error
@@ -117,19 +121,15 @@ export const subjectRequest = ({
     opts?: RequestOptions
     callback: (data: any) => void
     onRequestResult?: (result: RequestResult) => void
+    onDownloadBytes?: (bytes: number) => void
   }
 }) => {
-  const { connection, subject, payload, opts, callback, onRequestResult } = input
+  const { connection, subject, payload, opts, callback, onRequestResult, onDownloadBytes } = input
   if (!connection) {
     throw new Error('NATS connection is not available')
   }
 
-  const payloadBytes =
-    payload instanceof Uint8Array
-      ? payload.byteLength
-      : typeof payload === 'string'
-        ? payload.length
-        : undefined
+  const payloadBytes = byteLength(payload)
 
   void withSpan(
     'xstate.nats.request',
@@ -151,6 +151,7 @@ export const subjectRequest = ({
       return connection
         .request(subject, payload, requestOpts)
         .then((msg: Msg) => {
+          onDownloadBytes?.(msg.data?.length ?? 0)
           callback(parseNatsResult(msg))
           onRequestResult?.({ ok: true })
         })
@@ -185,12 +186,7 @@ export const subjectPublish = ({
     throw new Error('NATS connection is not available')
   }
 
-  const payloadBytes =
-    payload instanceof Uint8Array
-      ? payload.byteLength
-      : typeof payload === 'string'
-        ? payload.length
-        : undefined
+  const payloadBytes = byteLength(payload)
 
   try {
     withSpan(

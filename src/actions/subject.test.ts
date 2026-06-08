@@ -199,6 +199,47 @@ describe('subjectConsolidateState', () => {
     expect(callback).toHaveBeenCalledWith({ id: 2 })
   })
 
+  it('should report subscription message download bytes', async () => {
+    const connection = createMockConnection()
+    const payload = new TextEncoder().encode('{"id":1}')
+    let resolveIterator: () => void
+    const iteratorDone = new Promise<void>((r) => (resolveIterator = r))
+    let delivered = false
+
+    const mockSub = {
+      unsubscribe: vi.fn(),
+      [Symbol.asyncIterator]: () => ({
+        next: () => {
+          if (!delivered) {
+            delivered = true
+            return Promise.resolve({
+              value: { data: payload, json: () => ({ id: 1 }), string: () => '{"id":1}' },
+              done: false,
+            })
+          }
+          resolveIterator!()
+          return new Promise(() => {})
+        },
+      }),
+    } as any
+    connection.subscribe.mockReturnValue(mockSub)
+
+    const onDownloadBytes = vi.fn()
+    subjectConsolidateState({
+      input: {
+        connection,
+        currentSubscriptions: new Map(),
+        targetSubscriptions: new Map([
+          ['test.subject', { subject: 'test.subject', callback: vi.fn(), onDownloadBytes }],
+        ]),
+      },
+    })
+
+    await iteratorDone
+    await new Promise((r) => setTimeout(r, 10))
+    expect(onDownloadBytes).toHaveBeenCalledWith(payload.byteLength)
+  })
+
   it('should handle callback errors in the message loop', async () => {
     const connection = createMockConnection()
     let resolveIterator: () => void

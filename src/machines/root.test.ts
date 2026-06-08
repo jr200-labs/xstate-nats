@@ -479,6 +479,43 @@ describe('natsMachine', () => {
     actor.stop()
   })
 
+  it('should emit sanitized lifecycle diagnostics when enabled', async () => {
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+    const actor = createActor(createTestMachine())
+    actor.start()
+
+    actor.send({
+      type: 'CONFIGURE',
+      config: {
+        opts: { debug: false, servers: ['ws://localhost:4222'], verbose: false },
+        auth: { type: 'token', token: 'secret-token' },
+        diagnostics: { lifecycle: true },
+        maxRetries: 3,
+      },
+    })
+    actor.send({ type: 'CONNECT' })
+
+    await vi.waitFor(() => {
+      expect(actor.getSnapshot().value).toBe('connected')
+    })
+
+    expect(debugSpy).toHaveBeenCalled()
+    const lifecycleCalls = debugSpy.mock.calls.filter(
+      ([message]) => message === 'xstate-nats lifecycle',
+    )
+    expect(lifecycleCalls.length).toBeGreaterThan(0)
+    expect(lifecycleCalls[0][1]).toMatchObject({
+      'nats.auth.type': 'token',
+      'nats.debug': false,
+      'nats.verbose': false,
+      'nats.max_retries': 3,
+      'nats.server.urls': 'ws://localhost:4222',
+    })
+    expect(JSON.stringify(lifecycleCalls)).not.toContain('secret-token')
+    actor.stop()
+    debugSpy.mockRestore()
+  })
+
   it('should restart an in-flight connection when reconfigured while connecting', async () => {
     const firstConnection = createDeferred<any>()
     const secondConnection = createDeferred<any>()

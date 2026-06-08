@@ -233,12 +233,36 @@ and request/reply replier.
 | `xstate.nats.publish`   | `SUBJECT.PUBLISH`    | `subject`, `payload.bytes`               |
 | `xstate.nats.request`   | `SUBJECT.REQUEST`    | `subject`, `payload.bytes`, `timeout.ms` |
 | `xstate.nats.reconnect` | NATS status loop     | `reconnect.type`                         |
+| `xstate.nats.lifecycle` | root machine         | `xstate.state`, `xstate.event`           |
 | `xstate.nats.kv.watch`  | `KV.SUBSCRIBE`       | `bucket`, `key`                          |
 | `xstate.nats.kv.entry`  | per KV watch entry   | `bucket`, `key`, `operation`             |
 
 All error paths record exceptions on the active span, set span status to
 `ERROR`, and emit a named event (`xstate.nats.error` / `xstate.nats.kv.error`)
 with a truncated stack.
+
+### Lifecycle diagnostics
+
+Root machine lifecycle diagnostics are opt-in and separate from raw NATS
+protocol frame logging. Enable them on the connection config:
+
+```ts
+send({
+  type: 'CONFIGURE',
+  config: {
+    opts: { servers: ['wss://example-nats'] },
+    diagnostics: { lifecycle: true },
+    maxRetries: 3,
+  },
+})
+```
+
+When enabled, the root machine emits sanitized `xstate.nats.lifecycle` spans and
+`console.debug('xstate-nats lifecycle', attributes)` breadcrumbs for configure,
+connect, close, manager initialization, and NATS status events. Diagnostics
+include state, event type, server URLs, debug/verbose flags, retry count, auth
+type, and manager readiness flags. They do not include credentials, JWTs, nkeys,
+signatures, passwords, tokens, or raw protocol frames.
 
 ### Enabling tracing
 

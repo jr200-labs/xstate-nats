@@ -5,11 +5,17 @@ import { subjectManagerLogic, ExternalEvents as SubjectExternalEvents } from './
 import { connectToNats, disconnectNats } from '../actions/connection'
 import { type AuthConfig } from '../actions/types'
 import { InternalStatusEvents as NatsStatusEvents } from '../actions/connection'
+import { withSpan } from '../telemetry'
+
+export interface NatsDiagnosticsConfig {
+  lifecycle?: boolean
+}
 
 export interface NatsConnectionConfig {
   opts: ConnectionOptions
   auth?: AuthConfig
   maxRetries: number
+  diagnostics?: NatsDiagnosticsConfig
 }
 
 export interface Context {
@@ -42,6 +48,52 @@ export type ExternalEvents =
   | KvExternalEvents
 
 type Events = InternalEvents | ExternalEvents
+
+function lifecycleDiagnosticsEnabled(context: Context): boolean {
+  return Boolean(context.natsConfig?.diagnostics?.lifecycle)
+}
+
+function serverUrls(config: NatsConnectionConfig | undefined): string | undefined {
+  const servers = config?.opts.servers
+  return Array.isArray(servers) ? servers.join(',') : servers
+}
+
+function lifecycleAttributes(
+  context: Context,
+  event: { type: string },
+  state: string,
+): Record<string, string | number | boolean | undefined> {
+  return {
+    'xstate.state': state,
+    'xstate.event': event.type,
+    'nats.server.urls': serverUrls(context.natsConfig),
+    'nats.debug': Boolean(context.natsConfig?.opts.debug),
+    'nats.verbose': Boolean(context.natsConfig?.opts.verbose),
+    'nats.max_retries': context.natsConfig?.maxRetries,
+    'nats.auth.type': context.natsConfig?.auth?.type,
+    'nats.has_connection': context.connection !== null,
+    'nats.subject_manager_ready': context.subjectManagerReady,
+    'nats.kv_manager_ready': context.kvManagerReady,
+    'nats.configure_after_close': context.configureAfterClose,
+    'nats.connect_after_close': context.connectAfterClose,
+  }
+}
+
+function recordLifecycle(context: Context, event: { type: string }, state: string): void {
+  if (!lifecycleDiagnosticsEnabled(context)) return
+
+  const attributes = lifecycleAttributes(context, event, state)
+  console.debug('xstate-nats lifecycle', attributes)
+  withSpan('xstate.nats.lifecycle', 'xstate.nats.error', attributes, (span) => {
+    span.addEvent(`xstate.nats.${state}.${event.type}`, attributes)
+  })
+}
+
+function lifecycleAction(state: string) {
+  return ({ context, event }: { context: Context; event: { type: string } }) => {
+    recordLifecycle(context, event, state)
+  }
+}
 
 export const natsMachine = setup({
   types: {
@@ -136,6 +188,7 @@ export const natsMachine = setup({
     'NATS_CONNECTION.*': {
       actions: [
         ({ context, event }: { context: Context; event: any }) => {
+          recordLifecycle(context, event, 'status')
           if (context.natsConfig?.opts.debug) {
             console.log('root received NATS status event', event)
           }
@@ -163,10 +216,11 @@ export const natsMachine = setup({
       entry: ['clearDeferredCloseActions'],
       on: {
         CONFIGURE: {
-          actions: ['configureNats'],
+          actions: ['configureNats', lifecycleAction('configured')],
         },
         CONNECT: {
           target: 'connecting',
+          actions: lifecycleAction('configured'),
         },
         RESET: {
           target: 'not_configured',
@@ -182,7 +236,17 @@ export const natsMachine = setup({
       },
     },
     connecting: {
-      entry: ['clearDeferredCloseActions'],
+      entry: ['clearDeferredCloseActions', lifecycleAction('connecting')],
+      on: {
+        CONFIGURE: {
+          target: 'connecting',
+          reenter: true,
+          actions: ['configureNats', lifecycleAction('connecting')],
+        },
+        CONNECT: {
+          actions: lifecycleAction('connecting'),
+        },
+      },
       invoke: [
         {
           src: 'connectToNats',
@@ -193,6 +257,7 @@ export const natsMachine = setup({
           onDone: {
             target: 'initialise_managers',
             actions: [
+              lifecycleAction('connecting'),
               assign({
                 connection: ({ event }) => event.output,
                 retries: (_) => 0,
@@ -201,16 +266,20 @@ export const natsMachine = setup({
           },
           onError: {
             target: 'error',
-            actions: assign({
-              error: ({ event }) => event.error as Error,
-              retries: ({ context }) => context.retries + 1,
-            }),
+            actions: [
+              lifecycleAction('connecting'),
+              assign({
+                error: ({ event }) => event.error as Error,
+                retries: ({ context }) => context.retries + 1,
+              }),
+            ],
           },
         },
       ],
     },
     initialise_managers: {
       entry: [
+        lifecycleAction('initialise_managers'),
         sendTo('subject', ({ context }) => ({
           type: 'SUBJECT.CONNECT',
           connection: context.connection!,
@@ -218,11 +287,36 @@ export const natsMachine = setup({
         sendTo('kv', ({ context }) => ({ type: 'KV.CONNECT', connection: context.connection! })),
       ],
       on: {
+        CONFIGURE: {
+          target: 'closing',
+          actions: [
+            'configureNatsAfterClose',
+            'reconnectAfterClose',
+            lifecycleAction('initialise_managers'),
+          ],
+        },
+        CONNECT: {
+          actions: lifecycleAction('initialise_managers'),
+        },
+        DISCONNECT: {
+          target: 'closing',
+          actions: ['clearDeferredCloseActions', lifecycleAction('initialise_managers')],
+        },
+        CLOSE: {
+          target: 'closing',
+          actions: ['clearDeferredCloseActions', lifecycleAction('initialise_managers')],
+        },
         'SUBJECT.CONNECTED': {
-          actions: [assign({ subjectManagerReady: (_) => true })],
+          actions: [
+            assign({ subjectManagerReady: (_) => true }),
+            lifecycleAction('initialise_managers'),
+          ],
         },
         'KV.CONNECTED': {
-          actions: [assign({ kvManagerReady: (_) => true })],
+          actions: [
+            assign({ kvManagerReady: (_) => true }),
+            lifecycleAction('initialise_managers'),
+          ],
         },
       },
       always: [
@@ -235,6 +329,7 @@ export const natsMachine = setup({
     connected: {
       entry: [
         'clearDeferredCloseActions',
+        lifecycleAction('connected'),
         (event) => {
           if (event.context.natsConfig?.opts.debug) {
             console.log('CONNECTED', event.context.connection?.getServer())
@@ -244,15 +339,15 @@ export const natsMachine = setup({
       on: {
         CONFIGURE: {
           target: 'closing',
-          actions: ['configureNatsAfterClose', 'reconnectAfterClose'],
+          actions: ['configureNatsAfterClose', 'reconnectAfterClose', lifecycleAction('connected')],
         },
         DISCONNECT: {
           target: 'closing',
-          actions: ['clearDeferredCloseActions'],
+          actions: ['clearDeferredCloseActions', lifecycleAction('connected')],
         },
         CLOSE: {
           target: 'closing',
-          actions: ['clearDeferredCloseActions'],
+          actions: ['clearDeferredCloseActions', lifecycleAction('connected')],
         },
         'SUBJECT.*': {
           actions: [
@@ -297,6 +392,7 @@ export const natsMachine = setup({
             console.log('CLOSING', event.context.connection?.getServer())
           }
         },
+        lifecycleAction('closing'),
         sendTo('subject', { type: 'SUBJECT.DISCONNECTED' }),
         sendTo('kv', { type: 'KV.DISCONNECTED' }),
       ],
@@ -307,33 +403,40 @@ export const natsMachine = setup({
           {
             guard: 'shouldConnectAfterClose',
             target: 'connecting',
+            actions: lifecycleAction('closing'),
           },
           {
             guard: 'shouldConfigureAfterClose',
             target: 'configured',
+            actions: lifecycleAction('closing'),
           },
           {
             target: 'closed',
+            actions: lifecycleAction('closing'),
           },
         ],
         onError: {
           target: 'error',
-          actions: assign({
-            error: ({ event }) => event.error as Error,
-          }),
+          actions: [
+            lifecycleAction('closing'),
+            assign({
+              error: ({ event }) => event.error as Error,
+            }),
+          ],
         },
       },
       on: {
         CONFIGURE: {
-          actions: ['configureNatsAfterClose'],
+          actions: ['configureNatsAfterClose', lifecycleAction('closing')],
         },
         CONNECT: {
-          actions: ['reconnectAfterClose'],
+          actions: ['reconnectAfterClose', lifecycleAction('closing')],
         },
       },
     },
     closed: {
       entry: [
+        lifecycleAction('closed'),
         assign({
           connection: (_) => null,
           subjectManagerReady: (_) => false,
@@ -345,7 +448,7 @@ export const natsMachine = setup({
       on: {
         CONFIGURE: {
           target: 'configured',
-          actions: ['configureNats'],
+          actions: ['configureNats', lifecycleAction('closed')],
         },
         RESET: {
           target: 'not_configured',
@@ -353,6 +456,7 @@ export const natsMachine = setup({
         },
         CONNECT: {
           target: 'connecting',
+          actions: lifecycleAction('closed'),
         },
       },
       '*': {
@@ -364,11 +468,11 @@ export const natsMachine = setup({
       },
     },
     error: {
-      entry: ['clearDeferredCloseActions'],
+      entry: ['clearDeferredCloseActions', lifecycleAction('error')],
       on: {
         CONFIGURE: {
           target: 'configured',
-          actions: ['configureNats'],
+          actions: ['configureNats', lifecycleAction('error')],
         },
         RESET: {
           target: 'not_configured',

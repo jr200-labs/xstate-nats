@@ -64,6 +64,17 @@ const mockConnection = {
   }),
 } as any
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+
+  return { promise, resolve, reject }
+}
+
 function createTestMachine() {
   return natsMachine.provide({
     actors: {
@@ -230,6 +241,32 @@ describe('natsMachine', () => {
     actor.stop()
   })
 
+  it('should reconfigure from closed state', async () => {
+    const actor = createActor(createTestMachine())
+    actor.start()
+    configureAndConnect(actor)
+
+    await vi.waitFor(() => {
+      expect(actor.getSnapshot().value).toBe('connected')
+    })
+    actor.send({ type: 'DISCONNECT' })
+    await vi.waitFor(() => {
+      expect(actor.getSnapshot().value).toBe('closed')
+    })
+
+    actor.send({
+      type: 'CONFIGURE',
+      config: { opts: { debug: true, servers: ['ws://localhost:4223'] }, maxRetries: 5 },
+    })
+
+    expect(actor.getSnapshot().value).toBe('configured')
+    expect(actor.getSnapshot().context.natsConfig).toEqual({
+      opts: { debug: true, servers: ['ws://localhost:4223'] },
+      maxRetries: 5,
+    })
+    actor.stop()
+  })
+
   it('should reset from closed state', async () => {
     const actor = createActor(createTestMachine())
     actor.start()
@@ -290,6 +327,121 @@ describe('natsMachine', () => {
       expect(actor.getSnapshot().value).toBe('error')
     })
     expect(actor.getSnapshot().context.error).toBe(disconnectError)
+    actor.stop()
+  })
+
+  it('should reconfigure from error state', async () => {
+    const failMachine = natsMachine.provide({
+      actors: {
+        connectToNats: fromPromise(async () => {
+          throw new Error('fail')
+        }),
+        disconnectNats: fromPromise(async () => {}),
+        subject: mockSubjectMachine,
+        kv: mockKvMachine,
+      },
+    })
+
+    const actor = createActor(failMachine)
+    actor.start()
+    configureAndConnect(actor)
+
+    await vi.waitFor(() => {
+      expect(actor.getSnapshot().value).toBe('error')
+    })
+
+    actor.send({
+      type: 'CONFIGURE',
+      config: { opts: { debug: true, servers: ['ws://localhost:4224'] }, maxRetries: 1 },
+    })
+
+    expect(actor.getSnapshot().value).toBe('configured')
+    expect(actor.getSnapshot().context.error).toBeUndefined()
+    expect(actor.getSnapshot().context.natsConfig).toEqual({
+      opts: { debug: true, servers: ['ws://localhost:4224'] },
+      maxRetries: 1,
+    })
+    actor.stop()
+  })
+
+  it('should reconnect when configured while connected', async () => {
+    const connectInputs: any[] = []
+    const machine = natsMachine.provide({
+      actors: {
+        connectToNats: fromPromise(async ({ input }) => {
+          connectInputs.push(input)
+          return mockConnection
+        }),
+        disconnectNats: fromPromise(async () => {}),
+        subject: mockSubjectMachine,
+        kv: mockKvMachine,
+      },
+    })
+    const actor = createActor(machine)
+    actor.start()
+    configureAndConnect(actor)
+
+    await vi.waitFor(() => {
+      expect(actor.getSnapshot().value).toBe('connected')
+    })
+
+    actor.send({
+      type: 'CONFIGURE',
+      config: { opts: { debug: true, servers: ['ws://localhost:4225'] }, maxRetries: 2 },
+    })
+
+    await vi.waitFor(() => {
+      expect(actor.getSnapshot().value).toBe('connected')
+    })
+    expect(connectInputs).toHaveLength(2)
+    expect(connectInputs[1].opts).toEqual({ debug: true, servers: ['ws://localhost:4225'] })
+    expect(actor.getSnapshot().context.natsConfig).toEqual({
+      opts: { debug: true, servers: ['ws://localhost:4225'] },
+      maxRetries: 2,
+    })
+    actor.stop()
+  })
+
+  it('should apply CONFIGURE and CONNECT sent while closing', async () => {
+    const disconnect = createDeferred<void>()
+    const connectInputs: any[] = []
+    const machine = natsMachine.provide({
+      actors: {
+        connectToNats: fromPromise(async ({ input }) => {
+          connectInputs.push(input)
+          return mockConnection
+        }),
+        disconnectNats: fromPromise(async () => disconnect.promise),
+        subject: mockSubjectMachine,
+        kv: mockKvMachine,
+      },
+    })
+    const actor = createActor(machine)
+    actor.start()
+    configureAndConnect(actor)
+
+    await vi.waitFor(() => {
+      expect(actor.getSnapshot().value).toBe('connected')
+    })
+    actor.send({ type: 'DISCONNECT' })
+    expect(actor.getSnapshot().value).toBe('closing')
+
+    actor.send({
+      type: 'CONFIGURE',
+      config: { opts: { debug: true, servers: ['ws://localhost:4226'] }, maxRetries: 2 },
+    })
+    actor.send({ type: 'CONNECT' })
+    disconnect.resolve()
+
+    await vi.waitFor(() => {
+      expect(actor.getSnapshot().value).toBe('connected')
+    })
+    expect(connectInputs).toHaveLength(2)
+    expect(connectInputs[1].opts).toEqual({ debug: true, servers: ['ws://localhost:4226'] })
+    expect(actor.getSnapshot().context.natsConfig).toEqual({
+      opts: { debug: true, servers: ['ws://localhost:4226'] },
+      maxRetries: 2,
+    })
     actor.stop()
   })
 

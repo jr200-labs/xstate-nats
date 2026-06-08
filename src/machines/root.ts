@@ -19,6 +19,8 @@ export interface Context {
   retries: number
   subjectManagerReady: boolean
   kvManagerReady: boolean
+  configureAfterClose: boolean
+  connectAfterClose: boolean
 }
 
 // internal events and events from nats connection
@@ -54,6 +56,43 @@ export const natsMachine = setup({
       retries: (_) => 0,
       subjectManagerReady: (_) => false,
       kvManagerReady: (_) => false,
+      configureAfterClose: (_) => false,
+      connectAfterClose: (_) => false,
+    }),
+    configureNats: assign({
+      natsConfig: ({ event }) => {
+        if (event.type !== 'CONFIGURE') {
+          return undefined
+        }
+        return event.config
+      },
+      connection: (_) => null,
+      error: (_) => undefined,
+      retries: (_) => 0,
+      subjectManagerReady: (_) => false,
+      kvManagerReady: (_) => false,
+      configureAfterClose: (_) => false,
+      connectAfterClose: (_) => false,
+    }),
+    configureNatsAfterClose: assign({
+      natsConfig: ({ event }) => {
+        if (event.type !== 'CONFIGURE') {
+          return undefined
+        }
+        return event.config
+      },
+      error: (_) => undefined,
+      retries: (_) => 0,
+      subjectManagerReady: (_) => false,
+      kvManagerReady: (_) => false,
+      configureAfterClose: (_) => true,
+    }),
+    reconnectAfterClose: assign({
+      connectAfterClose: (_) => true,
+    }),
+    clearDeferredCloseActions: assign({
+      configureAfterClose: (_) => false,
+      connectAfterClose: (_) => false,
     }),
   },
   guards: {
@@ -62,6 +101,12 @@ export const natsMachine = setup({
       const subjectReady = context.subjectManagerReady
       const kvReady = context.kvManagerReady
       return hasValidConnection && subjectReady && kvReady
+    },
+    shouldConnectAfterClose: ({ context }) => {
+      return context.connectAfterClose && context.natsConfig !== undefined
+    },
+    shouldConfigureAfterClose: ({ context }) => {
+      return context.configureAfterClose && context.natsConfig !== undefined
     },
   },
   actors: {
@@ -80,6 +125,8 @@ export const natsMachine = setup({
     retries: 0,
     subjectManagerReady: false,
     kvManagerReady: false,
+    configureAfterClose: false,
+    connectAfterClose: false,
   },
   invoke: [
     { src: 'subject', id: 'subject', systemId: 'subject' },
@@ -101,11 +148,7 @@ export const natsMachine = setup({
       on: {
         CONFIGURE: {
           target: 'configured',
-          actions: [
-            assign({
-              natsConfig: ({ event }) => event.config,
-            }),
-          ],
+          actions: ['configureNats'],
           '*': {
             actions: [
               ({ event }: { event: any }) => {
@@ -117,7 +160,11 @@ export const natsMachine = setup({
       },
     },
     configured: {
+      entry: ['clearDeferredCloseActions'],
       on: {
+        CONFIGURE: {
+          actions: ['configureNats'],
+        },
         CONNECT: {
           target: 'connecting',
         },
@@ -135,6 +182,7 @@ export const natsMachine = setup({
       },
     },
     connecting: {
+      entry: ['clearDeferredCloseActions'],
       invoke: [
         {
           src: 'connectToNats',
@@ -186,6 +234,7 @@ export const natsMachine = setup({
     },
     connected: {
       entry: [
+        'clearDeferredCloseActions',
         (event) => {
           if (event.context.natsConfig?.opts.debug) {
             console.log('CONNECTED', event.context.connection?.getServer())
@@ -193,11 +242,17 @@ export const natsMachine = setup({
         },
       ],
       on: {
+        CONFIGURE: {
+          target: 'closing',
+          actions: ['configureNatsAfterClose', 'reconnectAfterClose'],
+        },
         DISCONNECT: {
           target: 'closing',
+          actions: ['clearDeferredCloseActions'],
         },
         CLOSE: {
           target: 'closing',
+          actions: ['clearDeferredCloseActions'],
         },
         'SUBJECT.*': {
           actions: [
@@ -248,9 +303,19 @@ export const natsMachine = setup({
       invoke: {
         src: 'disconnectNats',
         input: ({ context }) => ({ connection: context.connection }),
-        onDone: {
-          target: 'closed',
-        },
+        onDone: [
+          {
+            guard: 'shouldConnectAfterClose',
+            target: 'connecting',
+          },
+          {
+            guard: 'shouldConfigureAfterClose',
+            target: 'configured',
+          },
+          {
+            target: 'closed',
+          },
+        ],
         onError: {
           target: 'error',
           actions: assign({
@@ -258,9 +323,30 @@ export const natsMachine = setup({
           }),
         },
       },
+      on: {
+        CONFIGURE: {
+          actions: ['configureNatsAfterClose'],
+        },
+        CONNECT: {
+          actions: ['reconnectAfterClose'],
+        },
+      },
     },
     closed: {
+      entry: [
+        assign({
+          connection: (_) => null,
+          subjectManagerReady: (_) => false,
+          kvManagerReady: (_) => false,
+          configureAfterClose: (_) => false,
+          connectAfterClose: (_) => false,
+        }),
+      ],
       on: {
+        CONFIGURE: {
+          target: 'configured',
+          actions: ['configureNats'],
+        },
         RESET: {
           target: 'not_configured',
           actions: ['doReset'],
@@ -278,7 +364,12 @@ export const natsMachine = setup({
       },
     },
     error: {
+      entry: ['clearDeferredCloseActions'],
       on: {
+        CONFIGURE: {
+          target: 'configured',
+          actions: ['configureNats'],
+        },
         RESET: {
           target: 'not_configured',
           actions: ['doReset'],

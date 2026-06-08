@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.13](https://github.com/jr200-labs/xstate-nats/compare/v0.9.12...v0.9.13) (2026-06-08)
+
+
+### Bug Fixes
+
+* resubscribe managers after reconnect ([#66](https://github.com/jr200-labs/xstate-nats/issues/66)) ([51e100b](https://github.com/jr200-labs/xstate-nats/commit/51e100b915b584df4877d5fe8587bc52ded40a40))
+
 ## [0.9.12](https://github.com/jr200-labs/xstate-nats/compare/v0.9.11...v0.9.12) (2026-06-08)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.12](https://github.com/jr200-labs/xstate-nats/compare/v0.9.11...v0.9.12) (2026-06-08)
+
+
+### Bug Fixes
+
+* reconnect managers after nats reconfigure ([#64](https://github.com/jr200-labs/xstate-nats/issues/64)) ([7576ba4](https://github.com/jr200-labs/xstate-nats/commit/7576ba436bde231e95bad2ae1cf3b7f050d4cff2))
+
 ## [0.9.11](https://github.com/jr200-labs/xstate-nats/compare/v0.9.10...v0.9.11) (2026-06-08)
 
 

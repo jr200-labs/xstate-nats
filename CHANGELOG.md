@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.11](https://github.com/jr200-labs/xstate-nats/compare/v0.9.10...v0.9.11) (2026-06-08)
+
+
+### Bug Fixes
+
+* handle in-flight nats reconfiguration ([#62](https://github.com/jr200-labs/xstate-nats/issues/62)) ([6a940ad](https://github.com/jr200-labs/xstate-nats/commit/6a940ad7df668353c2fc0a3e029ad22c8b00e88b))
+
 ## [0.9.10](https://github.com/jr200-labs/xstate-nats/compare/v0.9.9...v0.9.10) (2026-06-08)
 
 

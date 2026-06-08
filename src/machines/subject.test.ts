@@ -51,7 +51,12 @@ function createParentMachine() {
         actions: assign({ childState: 'connected' }),
       },
       'SUBJECT.DISCONNECTED': {
-        actions: assign({ childState: 'disconnected' }),
+        actions: [
+          sendTo('subject', ({ event }: any) => {
+            return { ...event }
+          }),
+          assign({ childState: 'disconnected' }),
+        ],
       },
     },
     states: {
@@ -165,6 +170,35 @@ describe('subjectManagerLogic', () => {
     const childSnap = parentActor.getSnapshot().children.subject?.getSnapshot()
     expect(childSnap?.value).toBe('subject_connected')
     expect(connection.subscribe).toHaveBeenCalledWith('test.sub', undefined)
+    parentActor.stop()
+  })
+
+  it('should resubscribe retained configs after disconnect and reconnect', () => {
+    const parentActor = createActor(createParentMachine())
+    parentActor.start()
+
+    parentActor.send({
+      type: 'SUBJECT.SUBSCRIBE',
+      config: { subject: 'test.sub', callback: vi.fn() },
+    })
+
+    const firstConnection = createMockConnection()
+    parentActor.send({ type: 'SUBJECT.CONNECT', connection: firstConnection })
+
+    expect(firstConnection.subscribe).toHaveBeenCalledWith('test.sub', undefined)
+
+    parentActor.send({ type: 'SUBJECT.DISCONNECTED' })
+    const disconnectedCtx = parentActor.getSnapshot().children.subject?.getSnapshot()?.context
+    expect(disconnectedCtx?.subscriptionConfigs.has('test.sub')).toBe(true)
+    expect(disconnectedCtx?.subscriptions.size).toBe(0)
+    expect(disconnectedCtx?.syncRequired).toBe(1)
+
+    const secondConnection = createMockConnection()
+    parentActor.send({ type: 'SUBJECT.CONNECT', connection: secondConnection })
+
+    const childSnap = parentActor.getSnapshot().children.subject?.getSnapshot()
+    expect(childSnap?.value).toBe('subject_connected')
+    expect(secondConnection.subscribe).toHaveBeenCalledWith('test.sub', undefined)
     parentActor.stop()
   })
 

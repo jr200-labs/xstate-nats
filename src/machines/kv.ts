@@ -142,6 +142,8 @@ export const kvManagerLogic = setup({
           cachedConnection: null,
           cachedKvm: null,
           subscriptions: new Map<string, QueuedIterator<KvWatchEntry>>(),
+          syncRequired: ({ context }) =>
+            context.subscriptionConfigs.size > 0 ? Math.max(context.syncRequired, 1) : context.syncRequired,
         }),
         sendParent({ type: 'KV.DISCONNECTED' }),
       ],

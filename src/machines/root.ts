@@ -183,6 +183,14 @@ export const natsMachine = setup({
     },
     connecting: {
       entry: ['clearDeferredCloseActions'],
+      on: {
+        CONFIGURE: {
+          target: 'connecting',
+          reenter: true,
+          actions: ['configureNats'],
+        },
+        CONNECT: {},
+      },
       invoke: [
         {
           src: 'connectToNats',
@@ -218,6 +226,19 @@ export const natsMachine = setup({
         sendTo('kv', ({ context }) => ({ type: 'KV.CONNECT', connection: context.connection! })),
       ],
       on: {
+        CONFIGURE: {
+          target: 'closing',
+          actions: ['configureNatsAfterClose', 'reconnectAfterClose'],
+        },
+        CONNECT: {},
+        DISCONNECT: {
+          target: 'closing',
+          actions: ['clearDeferredCloseActions'],
+        },
+        CLOSE: {
+          target: 'closing',
+          actions: ['clearDeferredCloseActions'],
+        },
         'SUBJECT.CONNECTED': {
           actions: [assign({ subjectManagerReady: (_) => true })],
         },

@@ -123,6 +123,7 @@ export const kvManagerLogic = setup({
   states: {
     kv_idle: {
       on: {
+        'KV.DISCONNECTED': {},
         'KV.CONNECT': {
           target: 'kv_check_sync',
           actions: [
@@ -135,7 +136,6 @@ export const kvManagerLogic = setup({
       },
     },
     kv_disconnecting: {
-      target: 'kv_idle',
       entry: [
         // dont close the connection here, it will be closed by the nats connection machine
         assign({
@@ -145,6 +145,9 @@ export const kvManagerLogic = setup({
         }),
         sendParent({ type: 'KV.DISCONNECTED' }),
       ],
+      always: {
+        target: 'kv_idle',
+      },
     },
     kv_connected: {
       entry: [sendParent({ type: 'KV.CONNECTED' })],
@@ -153,6 +156,18 @@ export const kvManagerLogic = setup({
         guard: 'hasPendingSync',
       },
       on: {
+        'KV.CONNECT': {
+          target: 'kv_check_sync',
+          actions: [
+            assign({
+              cachedConnection: ({ event }) => event.connection,
+              cachedKvm: ({ event }) => new Kvm(event.connection),
+            }),
+          ],
+        },
+        'KV.DISCONNECTED': {
+          target: 'kv_disconnecting',
+        },
         'KV.BUCKET_LIST': {
           actions: async ({ context, event }) => {
             try {
@@ -266,6 +281,11 @@ export const kvManagerLogic = setup({
       },
     },
     kv_check_sync: {
+      on: {
+        'KV.DISCONNECTED': {
+          target: 'kv_disconnecting',
+        },
+      },
       always: [
         {
           target: 'kv_syncing',
@@ -277,6 +297,11 @@ export const kvManagerLogic = setup({
       ],
     },
     kv_syncing: {
+      on: {
+        'KV.DISCONNECTED': {
+          target: 'kv_disconnecting',
+        },
+      },
       entry: [
         ({ context }) => {
           // either going to be 0 or 1 (if there were multiple syncs pending)
@@ -318,8 +343,17 @@ export const kvManagerLogic = setup({
     },
     kv_error: {
       on: {
+        'KV.DISCONNECTED': {
+          target: 'kv_disconnecting',
+        },
         'KV.CONNECT': {
           target: 'kv_check_sync',
+          actions: [
+            assign({
+              cachedConnection: ({ event }) => event.connection,
+              cachedKvm: ({ event }) => new Kvm(event.connection),
+            }),
+          ],
         },
       },
     },

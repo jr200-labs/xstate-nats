@@ -103,6 +103,7 @@ export const subjectManagerLogic = setup({
   states: {
     subject_idle: {
       on: {
+        'SUBJECT.DISCONNECTED': {},
         'SUBJECT.CONNECT': {
           target: 'subject_check_sync',
           actions: [
@@ -114,7 +115,6 @@ export const subjectManagerLogic = setup({
       },
     },
     subject_disconnecting: {
-      target: 'subject_idle',
       entry: [
         // dont close the connection here, it will be closed by the nats connection machine
         assign({
@@ -123,6 +123,9 @@ export const subjectManagerLogic = setup({
         }),
         sendParent({ type: 'SUBJECT.DISCONNECTED' }),
       ],
+      always: {
+        target: 'subject_idle',
+      },
     },
     subject_connected: {
       entry: [sendParent({ type: 'SUBJECT.CONNECTED' })],
@@ -131,6 +134,17 @@ export const subjectManagerLogic = setup({
         guard: 'hasPendingSync',
       },
       on: {
+        'SUBJECT.CONNECT': {
+          target: 'subject_check_sync',
+          actions: [
+            assign({
+              cachedConnection: ({ event }) => event.connection,
+            }),
+          ],
+        },
+        'SUBJECT.DISCONNECTED': {
+          target: 'subject_disconnecting',
+        },
         'SUBJECT.REQUEST': {
           actions: assign(({ event, context }) => {
             subjectRequest({
@@ -164,6 +178,11 @@ export const subjectManagerLogic = setup({
       },
     },
     subject_check_sync: {
+      on: {
+        'SUBJECT.DISCONNECTED': {
+          target: 'subject_disconnecting',
+        },
+      },
       always: [
         {
           target: 'subject_syncing',
@@ -175,6 +194,11 @@ export const subjectManagerLogic = setup({
       ],
     },
     subject_syncing: {
+      on: {
+        'SUBJECT.DISCONNECTED': {
+          target: 'subject_disconnecting',
+        },
+      },
       entry: [
         ({ context }) => {
           // either going to be 0 or 1 (if there were multiple syncs pending)
@@ -199,8 +223,16 @@ export const subjectManagerLogic = setup({
     },
     subject_error: {
       on: {
+        'SUBJECT.DISCONNECTED': {
+          target: 'subject_disconnecting',
+        },
         'SUBJECT.CONNECT': {
           target: 'subject_check_sync',
+          actions: [
+            assign({
+              cachedConnection: ({ event }) => event.connection,
+            }),
+          ],
         },
       },
     },

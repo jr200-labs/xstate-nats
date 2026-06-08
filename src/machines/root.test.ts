@@ -12,7 +12,9 @@ vi.mock('@nats-io/nats-core', async () => {
 })
 
 vi.mock('@nats-io/kv', () => ({
-  Kvm: vi.fn().mockImplementation(() => ({})),
+  Kvm: vi.fn().mockImplementation(function () {
+    return {}
+  }),
 }))
 
 const mockSubjectMachine = createMachine({
@@ -96,6 +98,11 @@ const mockConnection = {
       next: () => new Promise(() => {}),
     }),
   }),
+} as any
+
+const secondMockConnection = {
+  ...mockConnection,
+  getServer: vi.fn().mockReturnValue('ws://localhost:4223'),
 } as any
 
 function createDeferred<T>() {
@@ -433,6 +440,41 @@ describe('natsMachine', () => {
       opts: { debug: true, servers: ['ws://localhost:4225'] },
       maxRetries: 2,
     })
+    actor.stop()
+  })
+
+  it('should reconnect real managers when configured while connected', async () => {
+    const connections = [mockConnection, secondMockConnection]
+    const connectInputs: any[] = []
+    const machine = natsMachine.provide({
+      actors: {
+        connectToNats: fromPromise(async ({ input }) => {
+          connectInputs.push(input)
+          return connections.shift() ?? secondMockConnection
+        }),
+        disconnectNats: fromPromise(async () => {}),
+      },
+    })
+    const actor = createActor(machine)
+    actor.start()
+    configureAndConnect(actor)
+
+    await vi.waitFor(() => {
+      expect(actor.getSnapshot().value).toBe('connected')
+    })
+
+    actor.send({
+      type: 'CONFIGURE',
+      config: { opts: { debug: true, servers: ['ws://localhost:4225'] }, maxRetries: 2 },
+    })
+
+    await vi.waitFor(() => {
+      expect(actor.getSnapshot().value).toBe('connected')
+    })
+    expect(connectInputs).toHaveLength(2)
+    expect(actor.getSnapshot().context.connection).toBe(secondMockConnection)
+    expect(actor.getSnapshot().context.subjectManagerReady).toBe(true)
+    expect(actor.getSnapshot().context.kvManagerReady).toBe(true)
     actor.stop()
   })
 

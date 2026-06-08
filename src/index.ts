@@ -12,6 +12,20 @@ export {
 export { KvSubscriptionKey, type KvSubscriptionConfig } from './actions/kv'
 export { parseNatsResult } from './actions/connection'
 export { type AuthConfig } from './actions/types'
+export {
+  byteLength as natsTrafficByteLength,
+  createEmptyTrafficMetrics,
+  recordTrafficMetric,
+  resetTrafficAll,
+  resetTrafficDownload,
+  resetTrafficUpload,
+  type NatsTrafficEvent,
+  type NatsTrafficMetricBucket,
+  type NatsTrafficMetrics,
+  type NatsTrafficMetricSource,
+  type NatsTrafficRecordEvent,
+  type NatsTrafficResetEvent,
+} from './traffic'
 
 export {
   type NatsConnectionConfig,

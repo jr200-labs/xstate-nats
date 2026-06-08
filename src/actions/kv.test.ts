@@ -181,6 +181,65 @@ describe('kvConsolidateState', () => {
     expect(result.subscriptions.has('Pair(bucket, key1)')).toBe(true)
   })
 
+  it('should report KV watch entry download bytes', async () => {
+    const rawValue = '{"value":"hello"}'
+    let delivered = false
+    let resolveIterator: () => void
+    const iteratorDone = new Promise<void>((resolve) => {
+      resolveIterator = resolve
+    })
+    const mockWatcher = {
+      [Symbol.asyncIterator]: () => ({
+        next: () => {
+          if (!delivered) {
+            delivered = true
+            return Promise.resolve({
+              value: {
+                operation: 'PUT',
+                string: () => rawValue,
+              },
+              done: false,
+            })
+          }
+          resolveIterator()
+          return new Promise(() => {})
+        },
+      }),
+    }
+    const mockKv = {
+      watch: vi.fn().mockResolvedValue(mockWatcher),
+    }
+    const mockKvm = {
+      open: vi.fn().mockResolvedValue(mockKv),
+    }
+    const onDownloadBytes = vi.fn()
+
+    const actor = createActor(kvConsolidateState, {
+      input: {
+        kvm: mockKvm as any,
+        connection: {} as any,
+        currentState: new Map(),
+        targetState: new Map([
+          [
+            'Pair(bucket, key1)',
+            {
+              bucket: 'bucket',
+              key: 'key1',
+              callback: vi.fn(),
+              onDownloadBytes,
+            },
+          ],
+        ]) as any,
+      },
+    })
+
+    actor.start()
+    await iteratorDone
+    await new Promise((r) => setTimeout(r, 10))
+    expect(onDownloadBytes).toHaveBeenCalledWith(new TextEncoder().encode(rawValue).byteLength)
+    actor.stop()
+  })
+
   it('should keep existing subscriptions that are still in target', async () => {
     const existingWatcher = { stop: vi.fn() } as any
     const currentState = new Map([['Pair(bucket, key1)', existingWatcher]])

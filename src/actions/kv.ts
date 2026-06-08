@@ -3,6 +3,7 @@ import { Kvm, KvWatchEntry, KvWatchOptions } from '@nats-io/kv'
 import { Pair } from '../utils'
 import { fromPromise } from 'xstate'
 import { recordError, withSpan } from '../telemetry'
+import { byteLength } from '../traffic'
 
 export class KvSubscriptionKey extends Pair<string, string> {}
 
@@ -12,6 +13,7 @@ export type KvSubscriptionConfig = {
   callback: (data: any) => void
   opts?: KvWatchOptions
   replayOnReconnect?: boolean
+  onDownloadBytes?: (bytes: number) => void
 }
 
 export const kvConsolidateState = fromPromise(
@@ -80,13 +82,19 @@ export const kvConsolidateState = fromPromise(
                     },
                     (span) => {
                       let parsedValue
+                      let rawValue: string
                       try {
-                        parsedValue = JSON.parse(e.string())
+                        rawValue = e.string()
+                        parsedValue = JSON.parse(rawValue)
                       } catch {
-                        parsedValue = e.string()
+                        rawValue = e.string()
+                        parsedValue = rawValue
                       }
 
                       try {
+                        // KvWatchEntry does not expose the raw wire payload on this path; the
+                        // UTF-8 byte length of string() is the measurable application payload.
+                        config.onDownloadBytes?.(byteLength(rawValue))
                         config.callback({
                           bucket: config.bucket,
                           key: config.key,

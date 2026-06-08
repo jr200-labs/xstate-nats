@@ -7,9 +7,20 @@ import {
   subjectRequest,
   subjectPublish,
 } from '../actions/subject'
+import {
+  byteLength,
+  createEmptyTrafficMetrics,
+  NatsTrafficMetrics,
+  NatsTrafficRecordEvent,
+  NatsTrafficResetEvent,
+  recordTrafficMetric,
+  resetTrafficAll,
+  resetTrafficDownload,
+  resetTrafficUpload,
+} from '../traffic'
 
 // internal events and events from nats connection
-type InternalEvents = { type: 'ERROR'; error: Error }
+type InternalEvents = { type: 'ERROR'; error: Error } | NatsTrafficRecordEvent
 
 // events which can be sent to the machine from the user
 export type ExternalEvents =
@@ -34,6 +45,7 @@ export type ExternalEvents =
   | { type: 'SUBJECT.SUBSCRIBE'; config: SubjectSubscriptionConfig }
   | { type: 'SUBJECT.UNSUBSCRIBE'; subject: string }
   | { type: 'SUBJECT.UNSUBSCRIBE_ALL' }
+  | NatsTrafficResetEvent
 
 export type Events = InternalEvents | ExternalEvents
 
@@ -43,6 +55,7 @@ export interface Context {
   subscriptions: Map<string, Subscription>
   subscriptionConfigs: Map<string, SubjectSubscriptionConfig>
   syncRequired: number
+  trafficMetrics: NatsTrafficMetrics
   error?: Error
 }
 
@@ -65,19 +78,53 @@ export const subjectManagerLogic = setup({
     subscriptionConfigs: new Map<string, SubjectSubscriptionConfig>(),
     cachedConnection: null,
     syncRequired: 0,
+    trafficMetrics: createEmptyTrafficMetrics(),
     error: undefined,
   },
   on: {
+    'METRICS.RECORD': {
+      actions: assign({
+        trafficMetrics: ({ context, event }) => recordTrafficMetric(context.trafficMetrics, event),
+      }),
+    },
+    'METRICS.RESET_UPLOAD': {
+      actions: assign({
+        trafficMetrics: ({ context, event }) =>
+          resetTrafficUpload(context.trafficMetrics, event.source),
+      }),
+    },
+    'METRICS.RESET_DOWNLOAD': {
+      actions: assign({
+        trafficMetrics: ({ context, event }) =>
+          resetTrafficDownload(context.trafficMetrics, event.source),
+      }),
+    },
+    'METRICS.RESET_ALL': {
+      actions: assign({
+        trafficMetrics: ({ context, event }) =>
+          resetTrafficAll(context.trafficMetrics, event.source),
+      }),
+    },
     'SUBJECT.SUBSCRIBE': {
       actions: [
-        assign({
-          subscriptionConfigs: ({ context, event }) => {
-            const { config } = event
-            const newConfigs = new Map(context.subscriptionConfigs)
-            newConfigs.set(config.subject, config)
-            return newConfigs
-          },
-          syncRequired: ({ context }) => context.syncRequired + 1,
+        assign(({ context, event, self }) => {
+          if (event.type !== 'SUBJECT.SUBSCRIBE') return {}
+
+          const config: SubjectSubscriptionConfig = {
+            ...event.config,
+            onDownloadBytes: (bytes) =>
+              self.send({
+                type: 'METRICS.RECORD',
+                source: 'nats.subscribe',
+                downloadBytes: bytes,
+              }),
+          }
+          const newConfigs = new Map(context.subscriptionConfigs)
+          newConfigs.set(config.subject, config)
+          return {
+            subscriptionConfigs: newConfigs,
+            syncRequired: context.syncRequired + 1,
+          }
         }),
       ],
     },
@@ -121,7 +168,9 @@ export const subjectManagerLogic = setup({
           cachedConnection: null,
           subscriptions: new Map<string, Subscription>(),
           syncRequired: ({ context }) =>
-            context.subscriptionConfigs.size > 0 ? Math.max(context.syncRequired, 1) : context.syncRequired,
+            context.subscriptionConfigs.size > 0
+              ? Math.max(context.syncRequired, 1)
+              : context.syncRequired,
         }),
         sendParent({ type: 'SUBJECT.DISCONNECTED' }),
       ],
@@ -148,7 +197,12 @@ export const subjectManagerLogic = setup({
           target: 'subject_disconnecting',
         },
         'SUBJECT.REQUEST': {
-          actions: assign(({ event, context }) => {
+          actions: assign(({ event, context, self }) => {
+            self.send({
+              type: 'METRICS.RECORD',
+              source: 'nats.request',
+              uploadBytes: byteLength(event.payload),
+            })
             subjectRequest({
               input: {
                 connection: context.cachedConnection!,
@@ -157,6 +211,12 @@ export const subjectManagerLogic = setup({
                 opts: event.opts,
                 callback: event.callback,
                 onRequestResult: event.onRequestResult,
+                onDownloadBytes: (bytes) =>
+                  self.send({
+                    type: 'METRICS.RECORD',
+                    source: 'nats.request',
+                    downloadBytes: bytes,
+                  }),
               },
             })
             return {}
@@ -164,7 +224,12 @@ export const subjectManagerLogic = setup({
         },
         'SUBJECT.PUBLISH': {
           actions: [
-            ({ context, event }) => {
+            ({ context, event, self }) => {
+              self.send({
+                type: 'METRICS.RECORD',
+                source: 'nats.publish',
+                uploadBytes: byteLength(event.payload),
+              })
               subjectPublish({
                 input: {
                   connection: context.cachedConnection!,

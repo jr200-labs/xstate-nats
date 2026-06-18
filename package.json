@@ -9,7 +9,7 @@
     "url": "git+https://github.com/jr200-labs/xstate-nats.git"
   },
   "type": "module",
-  "packageManager": "pnpm@11.6.0",
+  "packageManager": "pnpm@11.8.0",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -57,14 +57,14 @@
     "@opentelemetry/context-async-hooks": "^2.8.0",
     "@opentelemetry/core": "^2.8.0",
     "@opentelemetry/sdk-trace-base": "^2.8.0",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^10.5.0",
     "globals": "^17.6.0",
     "husky": "^9.1.7",
     "prettier": "^3.8.4",
-    "syncpack": "^15.3.1",
+    "syncpack": "^15.3.2",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.0",
-    "vitest": "^4.1.8"
+    "typescript-eslint": "^8.61.1",
+    "vitest": "^4.1.9"
   }
 }

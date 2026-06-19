@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.17](https://github.com/jr200-labs/xstate-nats/compare/v0.9.16...v0.9.17) (2026-06-19)
+
+
+### Features
+
+* **deps:** update github-actions to v7 ([#77](https://github.com/jr200-labs/xstate-nats/issues/77)) ([67aa87b](https://github.com/jr200-labs/xstate-nats/commit/67aa87bc84d2808c2f2bae9b28c24653e9b45024))
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#76](https://github.com/jr200-labs/xstate-nats/issues/76)) ([06a2c0d](https://github.com/jr200-labs/xstate-nats/commit/06a2c0dc89f601f70f12d360ff43bc61d72f3091))
+
 ## [0.9.16](https://github.com/jr200-labs/xstate-nats/compare/v0.9.15...v0.9.16) (2026-06-14)
 
 

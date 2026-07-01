@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.9.18](https://github.com/jr200-labs/xstate-nats/compare/v0.9.17...v0.9.18) (2026-07-01)
+
+
+### Features
+
+* **deps:** update github-actions ([#81](https://github.com/jr200-labs/xstate-nats/issues/81)) ([ecca067](https://github.com/jr200-labs/xstate-nats/commit/ecca06756ea24c68cb1b1387c7a84286c33f5928))
+* **deps:** update github-actions ([#85](https://github.com/jr200-labs/xstate-nats/issues/85)) ([ca050dc](https://github.com/jr200-labs/xstate-nats/commit/ca050dc343e01534ac3069d2d730c4b5638f9127))
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#89](https://github.com/jr200-labs/xstate-nats/issues/89)) ([da18ca6](https://github.com/jr200-labs/xstate-nats/commit/da18ca6d097cff48750ccb6a32366d875d5a19d1))
+* **deps:** update all non-major dependencies ([#91](https://github.com/jr200-labs/xstate-nats/issues/91)) ([783f121](https://github.com/jr200-labs/xstate-nats/commit/783f1212bb18f647a9b77fc0600b5a15b0e091b9))
+* **deps:** update all non-major dependencies ([#94](https://github.com/jr200-labs/xstate-nats/issues/94)) ([097b6c8](https://github.com/jr200-labs/xstate-nats/commit/097b6c81852c1175067adc17d6fd41da3a5c4645))
+* **deps:** update all non-major dependencies ([#96](https://github.com/jr200-labs/xstate-nats/issues/96)) ([2d65bfb](https://github.com/jr200-labs/xstate-nats/commit/2d65bfb721b36e311f1b7aa2c6d0d3ecdcb0d718))
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.19 ([#90](https://github.com/jr200-labs/xstate-nats/issues/90)) ([1e9bc9b](https://github.com/jr200-labs/xstate-nats/commit/1e9bc9b24c8d0a07685ba0917310f032c72ce721))
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.20 ([#93](https://github.com/jr200-labs/xstate-nats/issues/93)) ([1bdef77](https://github.com/jr200-labs/xstate-nats/commit/1bdef772c9f7d373069346933ddb4291498ff1ae))
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.21 ([#97](https://github.com/jr200-labs/xstate-nats/issues/97)) ([efdb842](https://github.com/jr200-labs/xstate-nats/commit/efdb842c9899b0d665a14a50ad9e71470f4b0dee))
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.23 ([#98](https://github.com/jr200-labs/xstate-nats/issues/98)) ([a3fa2e9](https://github.com/jr200-labs/xstate-nats/commit/a3fa2e991cb5996dac1af95ee2b79656ba71bb7b))
+* **deps:** update dependency prettier to ^3.8.5 ([#92](https://github.com/jr200-labs/xstate-nats/issues/92)) ([59cbd59](https://github.com/jr200-labs/xstate-nats/commit/59cbd59aa2285cd903e98be7186bc001d3f1e5b6))
+* **deps:** update dependency prettier to ^3.9.1 ([#95](https://github.com/jr200-labs/xstate-nats/issues/95)) ([9e0114a](https://github.com/jr200-labs/xstate-nats/commit/9e0114a14247c0285c02153d99a43d41bceea5ba))
+* **deps:** update dependency xstate to ^5.32.3 ([#99](https://github.com/jr200-labs/xstate-nats/issues/99)) ([2dcbe31](https://github.com/jr200-labs/xstate-nats/commit/2dcbe31cf7da2d549ec220866d2ea54f3788d78a))
+* **deps:** update shared workflow ref ([#80](https://github.com/jr200-labs/xstate-nats/issues/80)) ([1d1836e](https://github.com/jr200-labs/xstate-nats/commit/1d1836eb4fe1a87972ba3599a0d13df1af5c69e8))
+* **deps:** update shared workflow ref ([#84](https://github.com/jr200-labs/xstate-nats/issues/84)) ([76b783d](https://github.com/jr200-labs/xstate-nats/commit/76b783d0555cd85b961b455bf0f054fe87515d21))
+* **deps:** update shared workflow ref ([#86](https://github.com/jr200-labs/xstate-nats/issues/86)) ([fb1bb75](https://github.com/jr200-labs/xstate-nats/commit/fb1bb7515c482b7f23e71c8467ff32035eea98dd))
+* **deps:** update shared workflow ref ([#87](https://github.com/jr200-labs/xstate-nats/issues/87)) ([b04905f](https://github.com/jr200-labs/xstate-nats/commit/b04905f8c88a56ea47c1cbcf2d0c203730cce2d8))
+* **deps:** update shared workflow ref ([#88](https://github.com/jr200-labs/xstate-nats/issues/88)) ([51e11dd](https://github.com/jr200-labs/xstate-nats/commit/51e11dd2ea37cefd21eaceb0346d6c01194f27ad))
+
 ## [0.9.17](https://github.com/jr200-labs/xstate-nats/compare/v0.9.16...v0.9.17) (2026-06-19)
 
 

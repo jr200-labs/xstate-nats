@@ -45,7 +45,7 @@
     "@nats-io/kv": "^3.4.0",
     "@nats-io/nats-core": "^3.4.0",
     "@nats-io/obj": "^3.4.0",
-    "xstate": "^5.32.2"
+    "xstate": "^5.32.3"
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.1"

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.19](https://github.com/jr200-labs/xstate-nats/compare/v0.9.18...v0.9.19) (2026-07-12)
+
+
+### Features
+
+* **deps:** update dependency typescript to v7 ([#105](https://github.com/jr200-labs/xstate-nats/issues/105)) ([cd9c269](https://github.com/jr200-labs/xstate-nats/commit/cd9c2699aecb802825e4a30423b9d3dd593f4a8c))
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#103](https://github.com/jr200-labs/xstate-nats/issues/103)) ([1db59ae](https://github.com/jr200-labs/xstate-nats/commit/1db59ae770f10691758204083d663e0c342dc6c7))
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.29 ([#104](https://github.com/jr200-labs/xstate-nats/issues/104)) ([4454caf](https://github.com/jr200-labs/xstate-nats/commit/4454caf1c896a764f682d465f0113af5102d08a2))
+
 ## [0.9.18](https://github.com/jr200-labs/xstate-nats/compare/v0.9.17...v0.9.18) (2026-07-06)
 
 

@@ -220,9 +220,13 @@ describe('connectToNats', () => {
     vi.mocked(wsconnect).mockResolvedValue(mockConnection as any)
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+    const statusEvents: unknown[] = []
 
     const actor = createActor(connectToNats, {
-      input: { opts: { servers: ['ws://localhost:4222'], debug: true } },
+      input: {
+        opts: { servers: ['ws://localhost:4222'], debug: true },
+        onStatus: event => statusEvents.push(event),
+      },
     })
 
     const outputPromise = new Promise<any>((resolve) => {
@@ -246,6 +250,13 @@ describe('connectToNats', () => {
       expect.objectContaining({ type: 'reconnect' }),
     )
     expect(consoleSpy).toHaveBeenCalledWith('Exiting nats status loop')
+    expect(statusEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'NATS_CONNECTION.DISCONNECTED' }),
+        expect.objectContaining({ type: 'NATS_CONNECTION.RECONNECT' }),
+        expect.objectContaining({ type: 'NATS_CONNECTION.CLOSE' }),
+      ]),
+    )
     consoleSpy.mockRestore()
     debugSpy.mockRestore()
   })

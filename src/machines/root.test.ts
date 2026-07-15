@@ -195,6 +195,21 @@ describe('natsMachine', () => {
     actor.stop()
   })
 
+  it('marks an unexpectedly closed connection unavailable', async () => {
+    const actor = createActor(createTestMachine())
+    actor.start()
+    configureAndConnect(actor)
+
+    await vi.waitFor(() => {
+      expect(actor.getSnapshot().value).toBe('connected')
+    })
+    actor.send({ type: 'NATS_CONNECTION.CLOSE', status: { type: 'close', data: {} } } as any)
+
+    expect(actor.getSnapshot().value).toBe('closed')
+    expect(actor.getSnapshot().context.connection).toBeNull()
+    actor.stop()
+  })
+
   it('should transition to error when connection fails', async () => {
     const failError = new Error('connection failed')
     const failMachine = natsMachine.provide({

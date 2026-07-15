@@ -9,7 +9,6 @@ import {
 } from '@nats-io/nats-core'
 import { KvEntry } from '@nats-io/kv'
 import { type AuthConfig } from './types'
-import { sendParent } from 'xstate'
 import { withSpan } from '../telemetry'
 
 const makeAuthConfig = (auth?: AuthConfig) => {
@@ -49,7 +48,11 @@ export const connectToNats = fromPromise(
   async ({
     input,
   }: {
-    input: { opts: ConnectionOptions; auth?: AuthConfig }
+    input: {
+      opts: ConnectionOptions
+      auth?: AuthConfig
+      onStatus?: (event: InternalStatusEvents) => void
+    }
   }): Promise<NatsConnection> => {
     const mergedOpts: ConnectionOptions = {
       ...input.opts,
@@ -58,8 +61,6 @@ export const connectToNats = fromPromise(
     const debug = Boolean(mergedOpts.debug)
     const nc = await wsconnect(mergedOpts)
 
-    // bug: self refers to 'this' promise, which is short-lived....
-    // TODO: Emit status events into the machine instead
     ;(async () => {
       for await (const status of nc.status()) {
         if (debug) {
@@ -69,7 +70,7 @@ export const connectToNats = fromPromise(
 
         switch (type) {
           case 'disconnect':
-            sendParent({ type: 'NATS_CONNECTION.DISCONNECTED', status })
+            input.onStatus?.({ type: 'NATS_CONNECTION.DISCONNECTED', status })
             break
           case 'reconnect':
             // Per-event span so reconnect attempts become discoverable in
@@ -79,15 +80,15 @@ export const connectToNats = fromPromise(
               'xstate.nats.error',
               { 'reconnect.type': type },
               () => {
-                sendParent({ type: 'NATS_CONNECTION.RECONNECT', status })
+                input.onStatus?.({ type: 'NATS_CONNECTION.RECONNECT', status })
               },
             )
             break
           case 'error':
-            sendParent({ type: 'NATS_CONNECTION.ERROR', status })
+            input.onStatus?.({ type: 'NATS_CONNECTION.ERROR', status })
             break
           case 'close':
-            sendParent({ type: 'NATS_CONNECTION.CLOSE', status })
+            input.onStatus?.({ type: 'NATS_CONNECTION.CLOSE', status })
             break
           case 'ldm':
             console.debug('LDM', status)
@@ -101,7 +102,7 @@ export const connectToNats = fromPromise(
               'xstate.nats.error',
               { 'reconnect.type': type },
               () => {
-                sendParent({ type: 'NATS_CONNECTION.RECONNECT', status })
+                input.onStatus?.({ type: 'NATS_CONNECTION.RECONNECT', status })
               },
             )
             break
@@ -111,7 +112,7 @@ export const connectToNats = fromPromise(
               'xstate.nats.error',
               { 'reconnect.type': type },
               () => {
-                sendParent({ type: 'NATS_CONNECTION.RECONNECTING', status })
+                input.onStatus?.({ type: 'NATS_CONNECTION.RECONNECTING', status })
               },
             )
             break

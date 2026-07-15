@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.20](https://github.com/jr200-labs/xstate-nats/compare/v0.9.19...v0.9.20) (2026-07-15)
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#109](https://github.com/jr200-labs/xstate-nats/issues/109)) ([60d7665](https://github.com/jr200-labs/xstate-nats/commit/60d7665e9332a2a9efc2783700e6313b9678b8c3))
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.30 ([#108](https://github.com/jr200-labs/xstate-nats/issues/108)) ([8594fee](https://github.com/jr200-labs/xstate-nats/commit/8594feefcf1e1e030d0d87c1ca0c3bbafb479289))
+* recover after a browser NATS WebSocket closes ([#110](https://github.com/jr200-labs/xstate-nats/issues/110)) ([138de3a](https://github.com/jr200-labs/xstate-nats/commit/138de3aadab4feafa0793f05a0725a48c5a74301))
+
 ## [0.9.19](https://github.com/jr200-labs/xstate-nats/compare/v0.9.18...v0.9.19) (2026-07-12)
 
 

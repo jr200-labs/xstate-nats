@@ -5,13 +5,16 @@ import {
   Msg,
   NatsConnection,
   Status,
+  tokenAuthenticator,
+  usernamePasswordAuthenticator,
   wsconnect,
 } from '@nats-io/nats-core'
 import { KvEntry } from '@nats-io/kv'
 import { type AuthConfig } from './types'
 import { withSpan } from '../telemetry'
+import { CredentialActor, getCredentials } from '../machines/credentials'
 
-const makeAuthConfig = (auth?: AuthConfig) => {
+const makeAuthConfig = (auth?: AuthConfig, getLatest?: () => AuthConfig | undefined) => {
   if (!auth) {
     return {}
   }
@@ -19,18 +22,24 @@ const makeAuthConfig = (auth?: AuthConfig) => {
   if (auth.type === 'decentralised') {
     const decodedSentinel = atob(auth!.sentinelB64!)
     return {
-      authenticator: credsAuthenticator(new TextEncoder().encode(decodedSentinel)),
-      user: auth.user,
-      pass: auth.pass,
+      authenticator: [
+        credsAuthenticator(new TextEncoder().encode(decodedSentinel)),
+        usernamePasswordAuthenticator(
+          () => getLatest?.()?.user ?? auth.user!,
+          () => getLatest?.()?.pass ?? auth.pass!,
+        ),
+      ],
     }
   } else if (auth.type === 'userpass') {
     return {
-      user: auth.user,
-      pass: auth.pass,
+      authenticator: usernamePasswordAuthenticator(
+        () => getLatest?.()?.user ?? auth.user!,
+        () => getLatest?.()?.pass ?? auth.pass!,
+      ),
     }
   } else if (auth.type === 'token') {
     return {
-      token: auth.token,
+      authenticator: tokenAuthenticator(() => getLatest?.()?.token ?? auth.token!),
     }
   }
 
@@ -51,12 +60,23 @@ export const connectToNats = fromPromise(
     input: {
       opts: ConnectionOptions
       auth?: AuthConfig
+      credentialActor?: CredentialActor
       onStatus?: (event: InternalStatusEvents) => void
     }
   }): Promise<NatsConnection> => {
+    const credentials = input.credentialActor
+      ? await getCredentials(input.credentialActor)
+      : undefined
+    const auth = credentials?.auth ?? input.auth
     const mergedOpts: ConnectionOptions = {
       ...input.opts,
-      ...makeAuthConfig(input.auth),
+      ...makeAuthConfig(auth, () => {
+        const current = input.credentialActor?.getSnapshot().context.current
+        if (current?.expiresAt !== undefined && current.expiresAt <= Date.now()) {
+          throw new Error('NATS credentials expired')
+        }
+        return current?.auth
+      }),
     }
     const debug = Boolean(mergedOpts.debug)
     const nc = await wsconnect(mergedOpts)

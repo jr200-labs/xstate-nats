@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createActor, fromPromise, createMachine, sendParent } from 'xstate'
 import { natsMachine } from './root'
 
+const subjectEventSpy = vi.fn()
+
 vi.mock('@nats-io/nats-core', async () => {
   const actual = await vi.importActual<typeof import('@nats-io/nats-core')>('@nats-io/nats-core')
   return {
@@ -29,7 +31,7 @@ const mockSubjectMachine = createMachine({
     connected: {
       entry: sendParent({ type: 'SUBJECT.CONNECTED' }),
       on: {
-        'SUBJECT.*': {},
+        'SUBJECT.*': { actions: ({ event }) => subjectEventSpy(event) },
         'SUBJECT.DISCONNECTED': { target: 'idle' },
       },
     },
@@ -137,6 +139,7 @@ function configureAndConnect(actor: any) {
 
 describe('natsMachine', () => {
   beforeEach(() => {
+    subjectEventSpy.mockClear()
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
@@ -176,6 +179,90 @@ describe('natsMachine', () => {
     expect(actor.getSnapshot().context.connection).toBe(mockConnection)
     expect(actor.getSnapshot().context.subjectManagerReady).toBe(true)
     expect(actor.getSnapshot().context.kvManagerReady).toBe(true)
+    actor.stop()
+  })
+
+  it('forwards current credential headers to the subject manager', async () => {
+    const { headers } = await import('@nats-io/nats-core')
+    const requestHeaders = headers()
+    requestHeaders.set('authorization', 'Bearer current')
+    const actor = createActor(createTestMachine())
+    actor.start()
+    actor.send({
+      type: 'CONFIGURE',
+      config: {
+        opts: { servers: ['ws://localhost:4222'] },
+        maxRetries: 3,
+        credentials: {
+          adapter: { load: vi.fn(async () => ({ requestHeaders })) },
+        },
+      },
+    })
+    actor.send({ type: 'CONNECT' })
+    await vi.waitFor(() => expect(actor.getSnapshot().value).toBe('connected'))
+
+    actor.send({
+      type: 'SUBJECT.REQUEST',
+      subject: 'test.request',
+      payload: {},
+      callback: vi.fn(),
+    })
+
+    await vi.waitFor(() => {
+      expect(subjectEventSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestHeaders: expect.any(Function),
+          type: 'SUBJECT.REQUEST',
+        }),
+      )
+    })
+    const forwarded = subjectEventSpy.mock.calls.at(-1)?.[0]
+    await expect(forwarded.requestHeaders()).resolves.toBe(requestHeaders)
+    actor.stop()
+  })
+
+  it('closes an active connection when credential refresh fails', async () => {
+    const actor = createActor(createTestMachine()).start()
+    actor.send({
+      type: 'CONFIGURE',
+      config: {
+        opts: { servers: ['ws://localhost:4222'] },
+        maxRetries: 3,
+        credentials: {
+          refreshBeforeExpiryMs: 5,
+          adapter: {
+            load: async () => ({ expiresAt: Date.now() + 100 }),
+            refresh: async () => {
+              throw new Error('refresh failed')
+            },
+          },
+        },
+      },
+    })
+    actor.send({ type: 'CONNECT' })
+    await vi.waitFor(() => expect(actor.getSnapshot().value).toBe('connected'))
+
+    await vi.waitFor(() => expect(actor.getSnapshot().value).toBe('closed'))
+    actor.stop()
+  })
+
+  it('fails requests immediately while disconnected', () => {
+    const actor = createActor(createTestMachine())
+    const onRequestResult = vi.fn()
+    actor.start()
+
+    actor.send({
+      type: 'SUBJECT.REQUEST',
+      subject: 'test.request',
+      payload: {},
+      callback: vi.fn(),
+      onRequestResult,
+    })
+
+    expect(onRequestResult).toHaveBeenCalledWith({
+      ok: false,
+      error: expect.objectContaining({ message: 'NATS connection is not available' }),
+    })
     actor.stop()
   })
 

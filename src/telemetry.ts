@@ -14,12 +14,46 @@
 //     the per-message span so cross-process traces nest automatically.
 
 import type { Context, Span, Tracer } from '@opentelemetry/api'
-import { context as otelContext, propagation, SpanStatusCode, trace } from '@opentelemetry/api'
+import {
+  context as otelContext,
+  metrics,
+  propagation,
+  SpanStatusCode,
+  trace,
+} from '@opentelemetry/api'
 import type { MsgHdrs } from '@nats-io/nats-core'
 import { headers as natsHeaders } from '@nats-io/nats-core'
 import pkg from '../package.json' with { type: 'json' }
 
 const TRACER_NAME = '@jr200-labs/xstate-nats'
+const meter = metrics.getMeter(TRACER_NAME, pkg.version)
+const credentialOperations = meter.createCounter('xstate.nats.credentials.operations', {
+  description: 'Completed NATS credential operations',
+})
+const credentialDuration = meter.createHistogram('xstate.nats.credentials.operation.duration', {
+  description: 'NATS credential operation duration',
+  unit: 'ms',
+})
+const credentialStateTransitions = meter.createCounter(
+  'xstate.nats.credentials.state.transitions',
+  { description: 'NATS credential actor state transitions' },
+)
+
+export function recordCredentialOperation(
+  operation: 'load' | 'refresh',
+  outcome: 'success' | 'error',
+  durationMs: number,
+): void {
+  const attributes = { operation, outcome }
+  credentialOperations.add(1, attributes)
+  credentialDuration.record(durationMs, attributes)
+}
+
+export function recordCredentialState(
+  state: 'loading' | 'ready' | 'refreshing' | 'expired' | 'failed',
+): void {
+  credentialStateTransitions.add(1, { state })
+}
 
 // Do not cache — `trace.getTracer` already returns a lightweight ProxyTracer,
 // and caching across global-provider swaps (e.g. test teardown / re-register)

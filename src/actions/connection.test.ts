@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createActor } from 'xstate'
+import { createActor, waitFor } from 'xstate'
 import { parseNatsResult, connectToNats, disconnectNats } from './connection'
+import { credentialMachine } from '../machines/credentials'
 
 vi.mock('@nats-io/nats-core', async () => {
   const actual = await vi.importActual('@nats-io/nats-core')
@@ -8,6 +9,8 @@ vi.mock('@nats-io/nats-core', async () => {
     ...actual,
     wsconnect: vi.fn(),
     credsAuthenticator: vi.fn((_creds: Uint8Array) => 'mock-authenticator'),
+    usernamePasswordAuthenticator: vi.fn(() => 'mock-userpass-authenticator'),
+    tokenAuthenticator: vi.fn(() => 'mock-token-authenticator'),
   }
 })
 
@@ -44,6 +47,7 @@ describe('parseNatsResult', () => {
 describe('connectToNats', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.clearAllMocks()
   })
 
   it('should call wsconnect with opts and no auth', async () => {
@@ -103,8 +107,7 @@ describe('connectToNats', () => {
 
     expect(wsconnect).toHaveBeenCalledWith({
       servers: ['ws://localhost:4222'],
-      user: 'admin',
-      pass: 'secret',
+      authenticator: 'mock-userpass-authenticator',
     })
   })
 
@@ -137,8 +140,62 @@ describe('connectToNats', () => {
 
     expect(wsconnect).toHaveBeenCalledWith({
       servers: ['ws://localhost:4222'],
-      token: 'my-token',
+      authenticator: 'mock-token-authenticator',
     })
+  })
+
+  it('uses the latest actor credential for reconnect authentication', async () => {
+    const { wsconnect, usernamePasswordAuthenticator } = await import('@nats-io/nats-core')
+    const expiresAt = Date.now() + 3_600_000
+    const mockConnection = {
+      status: () => ({
+        [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }),
+      }),
+    }
+    vi.mocked(wsconnect).mockResolvedValue(mockConnection as any)
+    const load = vi
+      .fn()
+      .mockResolvedValueOnce({
+        expiresAt,
+        auth: {
+          type: 'decentralised',
+          sentinelB64: btoa('sentinel'),
+          user: 'user',
+          pass: 'first',
+        },
+      })
+      .mockResolvedValueOnce({
+        expiresAt,
+        auth: {
+          type: 'decentralised',
+          sentinelB64: btoa('sentinel'),
+          user: 'user',
+          pass: 'second',
+        },
+      })
+    const credentialActor = createActor(credentialMachine, {
+      input: { adapter: { load } },
+    }).start()
+    const actor = createActor(connectToNats, {
+      input: {
+        opts: { servers: ['ws://localhost:4222'] },
+        credentialActor,
+      },
+    }).start()
+
+    await waitFor(actor, (snapshot) => snapshot.status === 'done')
+    const password = vi.mocked(usernamePasswordAuthenticator).mock.calls[0][1]
+    expect(typeof password).toBe('function')
+    expect((password as () => string)()).toBe('first')
+
+    credentialActor.send({ type: 'CREDENTIALS.RELOAD' })
+    await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(credentialActor.getSnapshot().value).toBe('ready'))
+    expect((password as () => string)()).toBe('second')
+    const now = vi.spyOn(Date, 'now').mockReturnValue(expiresAt + 1)
+    expect(() => (password as () => string)()).toThrow('expired')
+    now.mockRestore()
+    credentialActor.stop()
   })
 
   it('should merge decentralised auth config', async () => {
@@ -177,9 +234,7 @@ describe('connectToNats', () => {
     expect(wsconnect).toHaveBeenCalledWith(
       expect.objectContaining({
         servers: ['ws://localhost:4222'],
-        authenticator: 'mock-authenticator',
-        user: 'nkey-user',
-        pass: 'nkey-pass',
+        authenticator: ['mock-authenticator', 'mock-userpass-authenticator'],
       }),
     )
   })
@@ -225,7 +280,7 @@ describe('connectToNats', () => {
     const actor = createActor(connectToNats, {
       input: {
         opts: { servers: ['ws://localhost:4222'], debug: true },
-        onStatus: event => statusEvents.push(event),
+        onStatus: (event) => statusEvents.push(event),
       },
     })
 

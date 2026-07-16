@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { headers, TimeoutError } from '@nats-io/nats-core'
 import { subjectConsolidateState, subjectRequest, subjectPublish } from './subject'
 import type { SubjectSubscriptionConfig } from './subject'
 
@@ -412,6 +413,125 @@ describe('subjectRequest', () => {
     )
     consoleSpy.mockRestore()
     expect(callback).not.toHaveBeenCalled()
+  })
+
+  it('reports synchronous connection failures', async () => {
+    const connection = createMockConnection()
+    const requestError = new Error('connection closed')
+    connection.request.mockImplementation(() => {
+      throw requestError
+    })
+    const onRequestResult = vi.fn()
+
+    subjectRequest({
+      input: {
+        connection,
+        subject: 'test.closed',
+        payload: {},
+        callback: vi.fn(),
+        onRequestResult,
+      },
+    })
+
+    await vi.waitFor(() => {
+      expect(onRequestResult).toHaveBeenCalledWith({ ok: false, error: requestError })
+    })
+  })
+
+  it('settles once when the response callback fails', async () => {
+    const connection = createMockConnection()
+    connection.request.mockResolvedValue({ json: () => ({}), string: () => '{}' })
+    const callbackError = new Error('response callback failed')
+    const onRequestResult = vi.fn()
+
+    subjectRequest({
+      input: {
+        connection,
+        subject: 'test.callback-fail',
+        payload: {},
+        callback: () => {
+          throw callbackError
+        },
+        onRequestResult,
+      },
+    })
+
+    await vi.waitFor(() => {
+      expect(onRequestResult).toHaveBeenCalledWith({ ok: false, error: callbackError })
+    })
+    expect(onRequestResult).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports request-header provider failures without sending', async () => {
+    const connection = createMockConnection()
+    const providerError = new Error('token refresh failed')
+    const onRequestResult = vi.fn()
+
+    subjectRequest({
+      input: {
+        connection,
+        subject: 'test.auth-fail',
+        payload: {},
+        callback: vi.fn(),
+        onRequestResult,
+        requestHeaders: () => {
+          throw providerError
+        },
+      },
+    })
+
+    await vi.waitFor(() => {
+      expect(onRequestResult).toHaveBeenCalledWith({ ok: false, error: providerError })
+    })
+    expect(connection.request).not.toHaveBeenCalled()
+  })
+
+  it('uses one timeout for request headers and transport', async () => {
+    const connection = createMockConnection()
+    const onRequestResult = vi.fn()
+
+    subjectRequest({
+      input: {
+        connection,
+        subject: 'test.auth-timeout',
+        payload: {},
+        opts: { timeout: 10 } as any,
+        callback: vi.fn(),
+        onRequestResult,
+        requestHeaders: () => new Promise(() => {}),
+      },
+    })
+
+    await vi.waitFor(() => {
+      expect(onRequestResult).toHaveBeenCalledWith({
+        ok: false,
+        error: expect.any(TimeoutError),
+      })
+    })
+    expect(connection.request).not.toHaveBeenCalled()
+  })
+
+  it('passes only the remaining timeout to transport', async () => {
+    const connection = createMockConnection()
+    connection.request.mockResolvedValue({ json: () => ({}), string: () => '{}' })
+    const requestHeaders = headers()
+    requestHeaders.set('authorization', 'Bearer token')
+    const now = vi.spyOn(performance, 'now').mockReturnValueOnce(100).mockReturnValueOnce(125)
+
+    subjectRequest({
+      input: {
+        connection,
+        subject: 'test.remaining-timeout',
+        payload: {},
+        opts: { timeout: 100 } as any,
+        callback: vi.fn(),
+        requestHeaders: async () => requestHeaders,
+      },
+    })
+
+    await vi.waitFor(() => expect(connection.request).toHaveBeenCalled())
+    expect(connection.request.mock.calls[0][2].timeout).toBe(75)
+    now.mockRestore()
   })
 
   it('should log request errors for callers without onRequestResult', async () => {

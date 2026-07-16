@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createActor, createMachine, assign, fromPromise, sendTo, setup } from 'xstate'
+import { headers } from '@nats-io/nats-core'
 import { subjectManagerLogic } from './subject'
 
 vi.mock('@nats-io/nats-core', async () => {
@@ -81,6 +82,26 @@ describe('subjectManagerLogic', () => {
     parentActor.start()
     const childSnap = parentActor.getSnapshot().children.subject?.getSnapshot()
     expect(childSnap?.value).toBe('subject_idle')
+    parentActor.stop()
+  })
+
+  it('fails requests immediately while disconnected', () => {
+    const parentActor = createActor(createParentMachine())
+    const onRequestResult = vi.fn()
+    parentActor.start()
+
+    parentActor.send({
+      type: 'SUBJECT.REQUEST',
+      subject: 'test.req',
+      payload: {},
+      callback: vi.fn(),
+      onRequestResult,
+    })
+
+    expect(onRequestResult).toHaveBeenCalledWith({
+      ok: false,
+      error: expect.objectContaining({ message: 'NATS connection is not available' }),
+    })
     parentActor.stop()
   })
 
@@ -285,6 +306,45 @@ describe('subjectManagerLogic', () => {
       'test.req',
       { data: 1 },
       expect.objectContaining({ headers: expect.anything() }),
+    )
+    parentActor.stop()
+  })
+
+  it('gets request headers immediately before sending', async () => {
+    const parentActor = createActor(createParentMachine())
+    parentActor.start()
+
+    const connection = createMockConnection()
+    parentActor.send({ type: 'SUBJECT.CONNECT', connection })
+    const requestHeaders = vi.fn(async () => {
+      const authHeaders = headers()
+      authHeaders.set('authorization', 'Bearer refreshed-token')
+      return authHeaders
+    })
+    const staleHeaders = headers()
+    staleHeaders.set('authorization', 'Bearer stale-token')
+
+    parentActor.send({
+      type: 'SUBJECT.REQUEST',
+      subject: 'test.req',
+      payload: { data: 1 },
+      opts: { headers: staleHeaders, timeout: 1000 },
+      callback: vi.fn(),
+      requestHeaders,
+    })
+
+    await vi.waitFor(() => {
+      expect(connection.request).toHaveBeenCalledWith(
+        'test.req',
+        { data: 1 },
+        expect.objectContaining({
+          headers: expect.objectContaining({ get: expect.any(Function) }),
+        }),
+      )
+    })
+    expect(requestHeaders).toHaveBeenCalledOnce()
+    expect(connection.request.mock.calls[0][2].headers.get('authorization')).toBe(
+      'Bearer refreshed-token',
     )
     parentActor.stop()
   })

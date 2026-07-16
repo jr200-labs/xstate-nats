@@ -1,5 +1,5 @@
 import { ConnectionOptions, NatsConnection } from '@nats-io/nats-core'
-import { assign, sendTo, setup } from 'xstate'
+import { assign, sendTo, setup, stopChild } from 'xstate'
 import { kvManagerLogic, ExternalEvents as KvExternalEvents } from './kv'
 import { subjectManagerLogic, ExternalEvents as SubjectExternalEvents } from './subject'
 import { connectToNats, disconnectNats } from '../actions/connection'
@@ -7,6 +7,13 @@ import { type AuthConfig } from '../actions/types'
 import { InternalStatusEvents as NatsStatusEvents } from '../actions/connection'
 import { withSpan } from '../telemetry'
 import { NatsTrafficResetEvent } from '../traffic'
+import { rejectUnavailableRequest } from '../actions/subject'
+import {
+  CredentialActor,
+  credentialMachine,
+  getCredentials,
+  NatsCredentialConfig,
+} from './credentials'
 
 export interface NatsDiagnosticsConfig {
   lifecycle?: boolean
@@ -15,6 +22,7 @@ export interface NatsDiagnosticsConfig {
 export interface NatsConnectionConfig {
   opts: ConnectionOptions
   auth?: AuthConfig
+  credentials?: NatsCredentialConfig
   maxRetries: number
   diagnostics?: NatsDiagnosticsConfig
 }
@@ -28,6 +36,7 @@ export interface Context {
   kvManagerReady: boolean
   configureAfterClose: boolean
   connectAfterClose: boolean
+  credentialActor?: CredentialActor
 }
 
 // internal events and events from nats connection
@@ -37,6 +46,7 @@ type InternalEvents =
   | { type: 'FAIL'; error: Error }
   | { type: 'RECONNECT' }
   | { type: 'CLOSE' }
+  | { type: 'CREDENTIALS.UNAVAILABLE'; error: Error }
   | NatsStatusEvents
 
 // events which can be sent to the machine from the user
@@ -45,6 +55,7 @@ export type ExternalEvents =
   | { type: 'CONNECT' }
   | { type: 'DISCONNECT' }
   | { type: 'RESET' }
+  | { type: 'CREDENTIALS.RELOAD' }
   | NatsTrafficResetEvent
   | SubjectExternalEvents
   | KvExternalEvents
@@ -72,7 +83,9 @@ function lifecycleAttributes(
     'nats.debug': Boolean(context.natsConfig?.opts.debug),
     'nats.verbose': Boolean(context.natsConfig?.opts.verbose),
     'nats.max_retries': context.natsConfig?.maxRetries,
-    'nats.auth.type': context.natsConfig?.auth?.type,
+    'nats.auth.type':
+      context.credentialActor?.getSnapshot().context.current?.auth?.type ??
+      context.natsConfig?.auth?.type,
     'nats.has_connection': context.connection !== null,
     'nats.subject_manager_ready': context.subjectManagerReady,
     'nats.kv_manager_ready': context.kvManagerReady,
@@ -103,6 +116,17 @@ export const natsMachine = setup({
     events: {} as Events,
   },
   actions: {
+    stopCredentialActor: stopChild(({ context }) => context.credentialActor as CredentialActor),
+    reloadCredentials: ({ context }) => {
+      context.credentialActor?.send({ type: 'CREDENTIALS.RELOAD' })
+    },
+    recordCredentialError: assign({
+      error: ({ event }) => (event.type === 'CREDENTIALS.UNAVAILABLE' ? event.error : undefined),
+    }),
+    rejectUnavailableRequest: ({ event }) => {
+      if (event.type !== 'SUBJECT.REQUEST') return
+      rejectUnavailableRequest(event)
+    },
     doReset: assign({
       natsConfig: (_) => undefined,
       connection: (_) => null,
@@ -112,6 +136,7 @@ export const natsMachine = setup({
       kvManagerReady: (_) => false,
       configureAfterClose: (_) => false,
       connectAfterClose: (_) => false,
+      credentialActor: (_) => undefined,
     }),
     configureNats: assign({
       natsConfig: ({ event }) => {
@@ -127,6 +152,22 @@ export const natsMachine = setup({
       kvManagerReady: (_) => false,
       configureAfterClose: (_) => false,
       connectAfterClose: (_) => false,
+      credentialActor: ({ event, spawn, self }) => {
+        if (event.type !== 'CONFIGURE' || !event.config.credentials) return undefined
+        const onUnavailable = event.config.credentials.onUnavailable
+        return spawn('credentials', {
+          input: {
+            ...event.config.credentials,
+            onUnavailable: (error) => {
+              try {
+                onUnavailable?.(error)
+              } finally {
+                self.send({ type: 'CREDENTIALS.UNAVAILABLE', error })
+              }
+            },
+          },
+        })
+      },
     }),
     configureNatsAfterClose: assign({
       natsConfig: ({ event }) => {
@@ -140,6 +181,22 @@ export const natsMachine = setup({
       subjectManagerReady: (_) => false,
       kvManagerReady: (_) => false,
       configureAfterClose: (_) => true,
+      credentialActor: ({ event, spawn, self }) => {
+        if (event.type !== 'CONFIGURE' || !event.config.credentials) return undefined
+        const onUnavailable = event.config.credentials.onUnavailable
+        return spawn('credentials', {
+          input: {
+            ...event.config.credentials,
+            onUnavailable: (error) => {
+              try {
+                onUnavailable?.(error)
+              } finally {
+                self.send({ type: 'CREDENTIALS.UNAVAILABLE', error })
+              }
+            },
+          },
+        })
+      },
     }),
     reconnectAfterClose: assign({
       connectAfterClose: (_) => true,
@@ -168,6 +225,7 @@ export const natsMachine = setup({
     disconnectNats: disconnectNats,
     subject: subjectManagerLogic,
     kv: kvManagerLogic,
+    credentials: credentialMachine,
   },
 }).createMachine({
   /** @xstate-layout N4IgpgJg5mDOIC5QAoC2BDAxgCwJYDswBKAOnwHsAXAfU3PwDNcoBXAJ0gGIBhAeQDkAYgEkA4gFUASgFEA2gAYAuolAAHcrFyVc9FSAAeiABwBOeSQBsAdgCMRgMwAmRxftWALPYCsAGhABPRHd3c3cvext7IwsveRCrAF8EvzQsPEJSOkZmdi4+fn5pbgAVBWUkEHVNbV0KwwQbGw9LJysLExNHSPkjP0CEdzaSMwsXaPt5LxMbeQsklIwcAmISLMJMbXwoTgh6MBICADdyAGt91KWM1fp1zagEI-JMdBr8MrK9Kq0dfD16m3CVhIUUcVis8isJjCjlmfUQ4XcLUcRiakXcJicc2SIAu6RWazAGwI2zAbDY5DYJFUABsXgwKagSLjlpkboS7g98Mdnq93kpPhpvrVQP9AcCjKDwZDobCAkF3DYSE0TNZ2p1ptF3PMcYs8az8Lc8gAZXgAZTk-IqX1ef0QNlGQK60TMEUGVi8NjhCFciJmGIxRmlYJs2uZV0w1MFWx2ewOXNO511LNWkc0W053JePz55TUgptdUQyK8JDiFiMXhC8hco3k9i9mJIVk17Rs03LYPsoaT4dTxM4pPJlJpdIZTJ7+L76cePOzSg+VvzP1tCGLpfc5cr8mrFlr9blDUrJFi2-kKs6NlB3bSyYjGi4MnNpUteeqy8LCCm9mB3kDtjBPRhA21bAme7bupukzXpcKyDhSnCPtIz65pUS7CgYdoWI0x4RG2IRNJ4jjuF6jgqk2LheJCbQRPYWrahQEBwHoYbEAKb7ofUAC0Fhetx0F6mQVC0PQTCsBwEBsUKvwflYXTkTE9qdq49gmA2jgls2FgbhuowmB4-G3iJOTiZJBYinacSKtYKoWHW7pGIGPEHm6JAhKMXikXYNieHRCw3uGbJElspnvuZDQRI4JAokRHkqjCG69M54TDLMXT2CpERmIk2IsfqhoSYu7HSWFTQqcMTrpVhKkool-SVhYx4uKlMylXYBm9lGUAhRxQSOF69omEq8gAruESTB5kTtZO94Fa+UkruiiqpdCHSOLhTn9E4GktjppH6TlE6kHBbDdcVGENFYZUXg49hVSYNVqeYMIRW07TqR42VJEAA */
@@ -181,24 +239,26 @@ export const natsMachine = setup({
     kvManagerReady: false,
     configureAfterClose: false,
     connectAfterClose: false,
+    credentialActor: undefined,
   },
   invoke: [
     { src: 'subject', id: 'subject', systemId: 'subject' },
     { src: 'kv', id: 'kv' },
   ],
-    on: {
-      'NATS_CONNECTION.CLOSE': {
-        target: '.closed',
-        actions: [
-          assign({
-            connection: (_) => null,
-            subjectManagerReady: (_) => false,
-            kvManagerReady: (_) => false,
-          }),
-          lifecycleAction('closed'),
-        ],
-      },
-      'NATS_CONNECTION.*': {
+  on: {
+    'CREDENTIALS.RELOAD': { actions: 'reloadCredentials' },
+    'NATS_CONNECTION.CLOSE': {
+      target: '.closed',
+      actions: [
+        assign({
+          connection: (_) => null,
+          subjectManagerReady: (_) => false,
+          kvManagerReady: (_) => false,
+        }),
+        lifecycleAction('closed'),
+      ],
+    },
+    'NATS_CONNECTION.*': {
       actions: [
         ({ context, event }: { context: Context; event: any }) => {
           recordLifecycle(context, event, 'status')
@@ -221,9 +281,10 @@ export const natsMachine = setup({
   states: {
     not_configured: {
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONFIGURE: {
           target: 'configured',
-          actions: ['configureNats'],
+          actions: ['stopCredentialActor', 'configureNats'],
           '*': {
             actions: [
               ({ event }: { event: any }) => {
@@ -237,8 +298,9 @@ export const natsMachine = setup({
     configured: {
       entry: ['clearDeferredCloseActions'],
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONFIGURE: {
-          actions: ['configureNats', lifecycleAction('configured')],
+          actions: ['stopCredentialActor', 'configureNats', lifecycleAction('configured')],
         },
         CONNECT: {
           target: 'connecting',
@@ -246,7 +308,7 @@ export const natsMachine = setup({
         },
         RESET: {
           target: 'not_configured',
-          actions: ['doReset'],
+          actions: ['stopCredentialActor', 'doReset'],
         },
         '*': {
           actions: [
@@ -260,10 +322,11 @@ export const natsMachine = setup({
     connecting: {
       entry: ['clearDeferredCloseActions', lifecycleAction('connecting')],
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONFIGURE: {
           target: 'connecting',
           reenter: true,
-          actions: ['configureNats', lifecycleAction('connecting')],
+          actions: ['stopCredentialActor', 'configureNats', lifecycleAction('connecting')],
         },
         CONNECT: {
           actions: lifecycleAction('connecting'),
@@ -275,6 +338,7 @@ export const natsMachine = setup({
           input: ({ context, self }) => ({
             opts: context.natsConfig!.opts,
             auth: context.natsConfig!.auth,
+            credentialActor: context.credentialActor,
             onStatus: (event: NatsStatusEvents) => self.send(event),
           }),
           onDone: {
@@ -283,6 +347,7 @@ export const natsMachine = setup({
               lifecycleAction('connecting'),
               assign({
                 connection: ({ event }) => event.output,
+                error: (_) => undefined,
                 retries: (_) => 0,
               }),
             ],
@@ -310,9 +375,11 @@ export const natsMachine = setup({
         sendTo('kv', ({ context }) => ({ type: 'KV.CONNECT', connection: context.connection! })),
       ],
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONFIGURE: {
           target: 'closing',
           actions: [
+            'stopCredentialActor',
             'configureNatsAfterClose',
             'reconnectAfterClose',
             lifecycleAction('initialise_managers'),
@@ -338,6 +405,14 @@ export const natsMachine = setup({
         'KV.CONNECTED': {
           actions: [
             assign({ kvManagerReady: (_) => true }),
+            lifecycleAction('initialise_managers'),
+          ],
+        },
+        'CREDENTIALS.UNAVAILABLE': {
+          target: 'closing',
+          actions: [
+            'recordCredentialError',
+            'clearDeferredCloseActions',
             lifecycleAction('initialise_managers'),
           ],
         },
@@ -373,7 +448,12 @@ export const natsMachine = setup({
         },
         CONFIGURE: {
           target: 'closing',
-          actions: ['configureNatsAfterClose', 'reconnectAfterClose', lifecycleAction('connected')],
+          actions: [
+            'stopCredentialActor',
+            'configureNatsAfterClose',
+            'reconnectAfterClose',
+            lifecycleAction('connected'),
+          ],
         },
         DISCONNECT: {
           target: 'closing',
@@ -382,6 +462,14 @@ export const natsMachine = setup({
         CLOSE: {
           target: 'closing',
           actions: ['clearDeferredCloseActions', lifecycleAction('connected')],
+        },
+        'CREDENTIALS.UNAVAILABLE': {
+          target: 'closing',
+          actions: [
+            'recordCredentialError',
+            'clearDeferredCloseActions',
+            lifecycleAction('connected'),
+          ],
         },
         'SUBJECT.*': {
           actions: [
@@ -393,7 +481,18 @@ export const natsMachine = setup({
             sendTo(
               'subject',
               ({ event, context }: { event: SubjectExternalEvents; context: Context }) => {
-                return { ...event, connection: context.connection }
+                return {
+                  ...event,
+                  connection: context.connection,
+                  requestHeaders: context.credentialActor
+                    ? () =>
+                        getCredentials(context.credentialActor!).then(
+                          (value) => value.requestHeaders,
+                        )
+                    : event.type === 'SUBJECT.REQUEST'
+                      ? event.requestHeaders
+                      : undefined,
+                }
               },
             ),
           ],
@@ -460,11 +559,12 @@ export const natsMachine = setup({
         },
       },
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         'NATS_CONNECTION.*': {
           actions: lifecycleAction('closing'),
         },
         CONFIGURE: {
-          actions: ['configureNatsAfterClose', lifecycleAction('closing')],
+          actions: ['stopCredentialActor', 'configureNatsAfterClose', lifecycleAction('closing')],
         },
         CONNECT: {
           actions: ['reconnectAfterClose', lifecycleAction('closing')],
@@ -485,13 +585,14 @@ export const natsMachine = setup({
         }),
       ],
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONFIGURE: {
           target: 'configured',
-          actions: ['configureNats', lifecycleAction('closed')],
+          actions: ['stopCredentialActor', 'configureNats', lifecycleAction('closed')],
         },
         RESET: {
           target: 'not_configured',
-          actions: ['doReset'],
+          actions: ['stopCredentialActor', 'doReset'],
         },
         CONNECT: {
           target: 'connecting',
@@ -509,17 +610,18 @@ export const natsMachine = setup({
     error: {
       entry: ['clearDeferredCloseActions', lifecycleAction('error')],
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONNECT: {
           target: 'connecting',
           actions: lifecycleAction('error'),
         },
         CONFIGURE: {
           target: 'configured',
-          actions: ['configureNats', lifecycleAction('error')],
+          actions: ['stopCredentialActor', 'configureNats', lifecycleAction('error')],
         },
         RESET: {
           target: 'not_configured',
-          actions: ['doReset'],
+          actions: ['stopCredentialActor', 'doReset'],
         },
       },
       '*': {

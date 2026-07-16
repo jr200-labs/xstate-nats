@@ -95,6 +95,7 @@ source without teaching `xstate-nats` about that provider:
 ```typescript
 credentials: {
   refreshBeforeExpiryMs: 60_000,
+  diagnostics: true,
   adapter: {
     load: () => loadSessionCredentials(),
     refresh: (current) => refreshSessionCredentials(current),
@@ -271,20 +272,35 @@ and request/reply replier.
 
 ### Emitted spans
 
-| Span name               | Emitted by           | Attributes                               |
-| ----------------------- | -------------------- | ---------------------------------------- |
-| `xstate.nats.subscribe` | `SUBJECT.SUBSCRIBE`  | `subject`                                |
-| `xstate.nats.message`   | per received message | `subject`, `payload.bytes`               |
-| `xstate.nats.publish`   | `SUBJECT.PUBLISH`    | `subject`, `payload.bytes`               |
-| `xstate.nats.request`   | `SUBJECT.REQUEST`    | `subject`, `payload.bytes`, `timeout.ms` |
-| `xstate.nats.reconnect` | NATS status loop     | `reconnect.type`                         |
-| `xstate.nats.lifecycle` | root machine         | `xstate.state`, `xstate.event`           |
-| `xstate.nats.kv.watch`  | `KV.SUBSCRIBE`       | `bucket`, `key`                          |
-| `xstate.nats.kv.entry`  | per KV watch entry   | `bucket`, `key`, `operation`             |
+| Span name                         | Emitted by           | Attributes                                                               |
+| --------------------------------- | -------------------- | ------------------------------------------------------------------------ |
+| `xstate.nats.subscribe`           | `SUBJECT.SUBSCRIBE`  | `subject`                                                                |
+| `xstate.nats.message`             | per received message | `subject`, `payload.bytes`                                               |
+| `xstate.nats.publish`             | `SUBJECT.PUBLISH`    | `subject`, `payload.bytes`                                               |
+| `xstate.nats.request`             | `SUBJECT.REQUEST`    | `subject`, `payload.bytes`, `timeout.ms`                                 |
+| `xstate.nats.reconnect`           | NATS status loop     | `reconnect.type`                                                         |
+| `xstate.nats.lifecycle`           | root machine         | `xstate.state`, `xstate.event`                                           |
+| `xstate.nats.credentials.load`    | credential load      | `credentials.operation`, `credentials.timeout.ms`, `credentials.outcome` |
+| `xstate.nats.credentials.refresh` | credential refresh   | `credentials.operation`, `credentials.timeout.ms`, `credentials.outcome` |
+| `xstate.nats.kv.watch`            | `KV.SUBSCRIBE`       | `bucket`, `key`                                                          |
+| `xstate.nats.kv.entry`            | per KV watch entry   | `bucket`, `key`, `operation`                                             |
 
 All error paths record exceptions on the active span, set span status to
 `ERROR`, and emit a named event (`xstate.nats.error` / `xstate.nats.kv.error`)
 with a truncated stack.
+
+### Credential metrics
+
+| Metric name                                  | Type      | Attributes             |
+| -------------------------------------------- | --------- | ---------------------- |
+| `xstate.nats.credentials.operations`         | Counter   | `operation`, `outcome` |
+| `xstate.nats.credentials.operation.duration` | Histogram | `operation`, `outcome` |
+| `xstate.nats.credentials.state.transitions`  | Counter   | `state`                |
+
+Operations are `load` or `refresh`; outcomes are `success` or `error`. Durations are recorded in
+milliseconds. These low-cardinality metrics expose authentication rate, refresh frequency,
+latency, failures, expiry, and recovery trends without recording credential contents.
+A registered OpenTelemetry `MeterProvider` is required to export them.
 
 ### Lifecycle diagnostics
 
@@ -309,6 +325,10 @@ include state, event type, server URLs, debug/verbose flags, retry count, auth
 type, and manager readiness flags. They do not include credentials, JWTs, nkeys,
 signatures, passwords, tokens, or raw protocol frames.
 
+Set `credentials.diagnostics: true` for sanitized credential state and operation breadcrumbs.
+They contain only operation, outcome, duration, timeout, state, and pending-waiter count. Adapter
+error messages and credential contents are deliberately excluded from logs and traces.
+
 ### Enabling tracing
 
 `@opentelemetry/api` is a peer dependency — the consumer controls the installed
@@ -322,9 +342,7 @@ import { W3CTraceContextPropagator } from '@opentelemetry/core'
 import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base'
 
 const provider = new BasicTracerProvider({
-  spanProcessors: [
-    /* your exporter */
-  ],
+  spanProcessors: [/* your exporter */],
 })
 trace.setGlobalTracerProvider(provider)
 propagation.setGlobalPropagator(new W3CTraceContextPropagator())

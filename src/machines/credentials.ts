@@ -1,6 +1,7 @@
 import { deadline, MsgHdrs } from '@nats-io/nats-core'
 import { ActorRefFrom, assign, fromPromise, setup } from 'xstate'
 import { type AuthConfig } from '../actions/types'
+import { recordCredentialOperation, recordCredentialState, withSpan } from '../telemetry'
 
 export interface NatsCredentials {
   auth?: AuthConfig
@@ -22,6 +23,8 @@ export interface NatsCredentialConfig {
   operationTimeoutMs?: number
   /** Called when credentials expire or cannot be loaded/refreshed. */
   onUnavailable?: (error: Error) => void
+  /** Emit sanitized credential lifecycle debug logs. */
+  diagnostics?: boolean
 }
 
 type CredentialResult = { ok: true; credentials: NatsCredentials } | { ok: false; error: Error }
@@ -49,8 +52,70 @@ function refreshBeforeExpiry(config: NatsCredentialConfig): number {
   return config.refreshBeforeExpiryMs ?? 60_000
 }
 
-function runBounded<T>(operation: () => Promise<T>, timeout: number): Promise<T> {
-  return deadline(Promise.resolve().then(operation), timeout)
+function credentialDiagnostic(
+  config: NatsCredentialConfig,
+  event: string,
+  attributes: Record<string, string | number | boolean>,
+): void {
+  if (config.diagnostics) console.debug('xstate-nats credentials', { event, ...attributes })
+}
+
+async function runCredentialOperation<T>(
+  config: NatsCredentialConfig,
+  operation: 'load' | 'refresh',
+  fn: () => Promise<T>,
+): Promise<T> {
+  const timeout = operationTimeout(config)
+  const startedAt = performance.now()
+  credentialDiagnostic(config, 'operation.start', { operation, timeout_ms: timeout })
+  let originalError: unknown
+
+  try {
+    const result = await withSpan(
+      `xstate.nats.credentials.${operation}`,
+      'xstate.nats.credentials.error',
+      { 'credentials.operation': operation, 'credentials.timeout.ms': timeout },
+      async (span) => {
+        try {
+          const value = await deadline(Promise.resolve().then(fn), timeout)
+          span.setAttribute('credentials.outcome', 'success')
+          return value
+        } catch (error) {
+          originalError = error
+          span.setAttribute('credentials.outcome', 'error')
+          // Keep provider error messages, stacks, tokens, and claims out of traces.
+          throw new Error(`NATS credential ${operation} failed`)
+        }
+      },
+    )
+    const durationMs = performance.now() - startedAt
+    recordCredentialOperation(operation, 'success', durationMs)
+    credentialDiagnostic(config, 'operation.finish', {
+      operation,
+      outcome: 'success',
+      duration_ms: durationMs,
+    })
+    return result
+  } catch {
+    const durationMs = performance.now() - startedAt
+    recordCredentialOperation(operation, 'error', durationMs)
+    credentialDiagnostic(config, 'operation.finish', {
+      operation,
+      outcome: 'error',
+      duration_ms: durationMs,
+    })
+    throw originalError ?? new Error(`NATS credential ${operation} failed`)
+  }
+}
+
+function credentialStateEntry(state: Parameters<typeof recordCredentialState>[0]) {
+  return ({ context }: { context: CredentialContext }) => {
+    recordCredentialState(state)
+    credentialDiagnostic(context.config, 'state.enter', {
+      state,
+      pending_waiters: context.waiters.length,
+    })
+  }
 }
 
 function notify(waiter: Waiter, result: CredentialResult): void {
@@ -69,13 +134,23 @@ export const credentialMachine = setup({
   },
   actors: {
     load: fromPromise(({ input }: { input: NatsCredentialConfig }) =>
-      runBounded(input.adapter.load, operationTimeout(input)),
+      runCredentialOperation(input, 'load', input.adapter.load),
     ),
     refresh: fromPromise(
       ({ input }: { input: { config: NatsCredentialConfig; current: NatsCredentials } }) => {
         const refresh = input.config.adapter.refresh
         if (!refresh) throw new Error('NATS credentials cannot be refreshed')
-        return runBounded(() => refresh(input.current), operationTimeout(input.config))
+        return runCredentialOperation(input.config, 'refresh', async () => {
+          const credentials = await refresh(input.current)
+          const expiresAt = credentials.expiresAt
+          if (
+            expiresAt !== undefined &&
+            expiresAt - refreshBeforeExpiry(input.config) <= Date.now()
+          ) {
+            throw new Error('Refreshed NATS credentials are already expired or too close to expiry')
+          }
+          return credentials
+        })
       },
     ),
   },
@@ -114,13 +189,6 @@ export const credentialMachine = setup({
       const expiresAt = (event.output as NatsCredentials).expiresAt
       return expiresAt !== undefined && expiresAt <= Date.now()
     },
-    refreshOutputNotFresh: ({ context, event }) => {
-      if (!('output' in event)) return true
-      const expiresAt = (event.output as NatsCredentials).expiresAt
-      return (
-        expiresAt !== undefined && expiresAt - refreshBeforeExpiry(context.config) <= Date.now()
-      )
-    },
   },
   actions: {
     queue: assign({
@@ -141,13 +209,6 @@ export const credentialMachine = setup({
     storeCredentials: assign(({ event }) =>
       'output' in event ? { current: event.output as NatsCredentials, error: undefined } : {},
     ),
-    rejectRefreshOutput: assign(({ context }) => {
-      const error = new Error(
-        'Refreshed NATS credentials are already expired or too close to expiry',
-      )
-      context.waiters.forEach((waiter) => notify(waiter, { ok: false, error }))
-      return { waiters: [], error }
-    }),
     rejectWaiters: assign(({ context, event }) => {
       const error =
         'error' in event
@@ -174,6 +235,7 @@ export const credentialMachine = setup({
   context: ({ input }) => ({ config: input, waiters: [] }),
   states: {
     loading: {
+      entry: credentialStateEntry('loading'),
       on: {
         'CREDENTIALS.GET': { actions: 'queue' },
       },
@@ -189,6 +251,7 @@ export const credentialMachine = setup({
       },
     },
     ready: {
+      entry: credentialStateEntry('ready'),
       after: {
         credentialDeadline: [
           { guard: 'canRefresh', target: 'refreshing' },
@@ -205,21 +268,19 @@ export const credentialMachine = setup({
       },
     },
     refreshing: {
+      entry: credentialStateEntry('refreshing'),
       on: {
         'CREDENTIALS.GET': { actions: 'queue' },
       },
       invoke: {
         src: 'refresh',
         input: ({ context }) => ({ config: context.config, current: context.current! }),
-        onDone: [
-          { guard: 'refreshOutputNotFresh', target: 'failed', actions: 'rejectRefreshOutput' },
-          { target: 'ready', actions: 'acceptCredentials' },
-        ],
+        onDone: { target: 'ready', actions: 'acceptCredentials' },
         onError: { target: 'failed', actions: 'rejectWaiters' },
       },
     },
     expired: {
-      entry: ['markExpired', 'rejectWaiters', 'notifyUnavailable'],
+      entry: [credentialStateEntry('expired'), 'markExpired', 'rejectWaiters', 'notifyUnavailable'],
       on: {
         'CREDENTIALS.GET': {
           actions: ({ event }) =>
@@ -229,7 +290,7 @@ export const credentialMachine = setup({
       },
     },
     failed: {
-      entry: 'notifyUnavailable',
+      entry: [credentialStateEntry('failed'), 'notifyUnavailable'],
       on: {
         'CREDENTIALS.GET': {
           actions: ({ context, event }) =>

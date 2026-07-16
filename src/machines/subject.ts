@@ -1,4 +1,10 @@
-import { Subscription, PublishOptions, NatsConnection, RequestOptions } from '@nats-io/nats-core'
+import {
+  MsgHdrs,
+  Subscription,
+  PublishOptions,
+  NatsConnection,
+  RequestOptions,
+} from '@nats-io/nats-core'
 import { assign, sendParent, setup } from 'xstate'
 import {
   RequestResult,
@@ -41,6 +47,7 @@ export type ExternalEvents =
       opts?: RequestOptions
       callback: (data: any) => void
       onRequestResult?: (result: RequestResult) => void
+      requestHeaders?: () => Promise<MsgHdrs | undefined>
     }
   | { type: 'SUBJECT.SUBSCRIBE'; config: SubjectSubscriptionConfig }
   | { type: 'SUBJECT.UNSUBSCRIBE'; subject: string }
@@ -211,6 +218,7 @@ export const subjectManagerLogic = setup({
                 opts: event.opts,
                 callback: event.callback,
                 onRequestResult: event.onRequestResult,
+                requestHeaders: event.requestHeaders,
                 onDownloadBytes: (bytes) =>
                   self.send({
                     type: 'METRICS.RECORD',

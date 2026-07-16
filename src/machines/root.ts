@@ -1,4 +1,4 @@
-import { ConnectionOptions, NatsConnection } from '@nats-io/nats-core'
+import { ConnectionOptions, MsgHdrs, NatsConnection } from '@nats-io/nats-core'
 import { assign, sendTo, setup } from 'xstate'
 import { kvManagerLogic, ExternalEvents as KvExternalEvents } from './kv'
 import { subjectManagerLogic, ExternalEvents as SubjectExternalEvents } from './subject'
@@ -15,6 +15,7 @@ export interface NatsDiagnosticsConfig {
 export interface NatsConnectionConfig {
   opts: ConnectionOptions
   auth?: AuthConfig
+  requestHeaders?: () => Promise<MsgHdrs | undefined>
   maxRetries: number
   diagnostics?: NatsDiagnosticsConfig
 }
@@ -393,7 +394,11 @@ export const natsMachine = setup({
             sendTo(
               'subject',
               ({ event, context }: { event: SubjectExternalEvents; context: Context }) => {
-                return { ...event, connection: context.connection }
+                return {
+                  ...event,
+                  connection: context.connection,
+                  requestHeaders: context.natsConfig?.requestHeaders,
+                }
               },
             ),
           ],

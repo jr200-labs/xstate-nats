@@ -1,5 +1,6 @@
 import {
   Msg,
+  MsgHdrs,
   NatsConnection,
   PublishOptions,
   RequestOptions,
@@ -122,9 +123,19 @@ export const subjectRequest = ({
     callback: (data: any) => void
     onRequestResult?: (result: RequestResult) => void
     onDownloadBytes?: (bytes: number) => void
+    requestHeaders?: () => Promise<MsgHdrs | undefined>
   }
 }) => {
-  const { connection, subject, payload, opts, callback, onRequestResult, onDownloadBytes } = input
+  const {
+    connection,
+    subject,
+    payload,
+    opts,
+    callback,
+    onRequestResult,
+    onDownloadBytes,
+    requestHeaders,
+  } = input
   if (!connection) {
     throw new Error('NATS connection is not available')
   }
@@ -145,11 +156,18 @@ export const subjectRequest = ({
       // declares `timeout` as required but nats-core only enforces it when
       // opts is provided; cast preserves the "no opts = use conn default"
       // contract.
-      const headers = injectContextIntoHeaders(opts?.headers)
-      const requestOpts = (opts ? { ...opts, headers } : { headers }) as RequestOptions
+      const request = (providedHeaders?: MsgHdrs) => {
+        const headers = injectContextIntoHeaders(opts?.headers)
+        providedHeaders?.keys().forEach((key) => {
+          const value = providedHeaders.get(key)
+          if (value) headers.set(key, value)
+        })
+        const requestOpts = (opts ? { ...opts, headers } : { headers }) as RequestOptions
 
-      return connection
-        .request(subject, payload, requestOpts)
+        return connection.request(subject, payload, requestOpts)
+      }
+
+      return (requestHeaders ? requestHeaders().then(request) : request())
         .then((msg: Msg) => {
           onDownloadBytes?.(msg.data?.length ?? 0)
           callback(parseNatsResult(msg))

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.21](https://github.com/jr200-labs/xstate-nats/compare/v0.9.20...v0.9.21) (2026-07-16)
+
+
+### Bug Fixes
+
+* **deps:** update pnpm to v11.13.1 ([#112](https://github.com/jr200-labs/xstate-nats/issues/112)) ([c85b60e](https://github.com/jr200-labs/xstate-nats/commit/c85b60e2c174e59d6a12bcccdda5c38d62205fe0))
+
 ## [0.9.20](https://github.com/jr200-labs/xstate-nats/compare/v0.9.19...v0.9.20) (2026-07-15)
 
 

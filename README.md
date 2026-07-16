@@ -88,6 +88,17 @@ send({
 })
 ```
 
+Set `config.requestHeaders` to provide headers immediately before every request. This is useful for
+short-lived credentials because the provider may refresh them before returning:
+
+```typescript
+requestHeaders: async () => {
+  const requestHeaders = headers()
+  requestHeaders.set('authorization', `Bearer ${await getValidAccessToken()}`)
+  return requestHeaders
+}
+```
+
 ### Key-Value Operations
 
 ```typescript

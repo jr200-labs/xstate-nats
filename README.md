@@ -88,19 +88,47 @@ send({
 })
 ```
 
-Set `config.requestHeaders` to provide headers immediately before every request. This is useful for
-short-lived credentials because the provider may refresh them before returning:
+For short-lived authentication, configure the built-in credential actor. The adapter is
+product-neutral: an application can obtain credentials from OIDC, a service account, or another
+source without teaching `xstate-nats` about that provider:
 
 ```typescript
-requestHeaders: async () => {
-  const requestHeaders = headers()
-  requestHeaders.set('authorization', `Bearer ${await getValidAccessToken()}`)
-  return requestHeaders
+credentials: {
+  refreshBeforeExpiryMs: 60_000,
+  adapter: {
+    load: () => loadSessionCredentials(),
+    refresh: (current) => refreshSessionCredentials(current),
+  },
 }
 ```
 
-Header preparation and the NATS round trip share the request's `opts.timeout`. Requests made while
-the connection is unavailable fail through `onRequestResult` instead of being left pending.
+Both adapter methods return a `NatsCredentials` value:
+
+```typescript
+const requestHeaders = headers()
+requestHeaders.set('authorization', `Bearer ${accessToken}`)
+
+return {
+  auth: {
+    type: 'decentralised',
+    sentinelB64,
+    user: userId,
+    pass: idToken,
+  },
+  requestHeaders,
+  expiresAt: tokenExpiryEpochMs,
+}
+```
+
+The credential actor loads once, shares concurrent callers, refreshes before expiry, and bounds
+each adapter operation (30 seconds by default). `CONNECT` waits for ready credentials. Every
+`SUBJECT.REQUEST` then obtains current headers immediately before sending; header preparation and
+the NATS round trip share the request's `opts.timeout`. NATS reconnect authentication reads the
+actor's current cached connection credential synchronously, as required by the NATS authenticator.
+
+If loading or refresh fails, or unrefreshable credentials expire, requests fail closed and an
+active NATS connection is closed. After the application has repaired its login/session, send
+`CREDENTIALS.RELOAD`, then `CONNECT`. Static non-expiring `auth` configuration remains supported.
 
 ### Key-Value Operations
 
@@ -174,9 +202,11 @@ The NATS machine operates in the following states:
 ### Main Exports
 
 - `natsMachine`: The main XState machine for NATS operations
+- `credentialMachine`: Generic short-lived credential lifecycle machine
 - `KvSubscriptionKey`: Type for KV subscription keys
 - `parseNatsResult`: Utility for parsing NATS operation results
 - `AuthConfig`: Type for authentication configuration
+- `NatsCredentialAdapter`, `NatsCredentialConfig`, `NatsCredentials`: Credential actor contracts
 
 ### Authentication
 
@@ -211,6 +241,7 @@ auth: {
 - `CONNECT`: Establish connection
 - `DISCONNECT`: Close connection
 - `RESET`: Reset to initial state
+- `CREDENTIALS.RELOAD`: Reload credentials after the application repairs its session
 
 #### Subject Events
 

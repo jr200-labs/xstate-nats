@@ -182,8 +182,10 @@ describe('natsMachine', () => {
     actor.stop()
   })
 
-  it('forwards configured request headers to the subject manager', async () => {
-    const requestHeaders = vi.fn(async () => undefined)
+  it('forwards current credential headers to the subject manager', async () => {
+    const { headers } = await import('@nats-io/nats-core')
+    const requestHeaders = headers()
+    requestHeaders.set('authorization', 'Bearer current')
     const actor = createActor(createTestMachine())
     actor.start()
     actor.send({
@@ -191,7 +193,9 @@ describe('natsMachine', () => {
       config: {
         opts: { servers: ['ws://localhost:4222'] },
         maxRetries: 3,
-        requestHeaders,
+        credentials: {
+          adapter: { load: vi.fn(async () => ({ requestHeaders })) },
+        },
       },
     })
     actor.send({ type: 'CONNECT' })
@@ -202,14 +206,43 @@ describe('natsMachine', () => {
       subject: 'test.request',
       payload: {},
       callback: vi.fn(),
-      requestHeaders: vi.fn(async () => undefined),
     })
 
     await vi.waitFor(() => {
       expect(subjectEventSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ requestHeaders, type: 'SUBJECT.REQUEST' }),
+        expect.objectContaining({
+          requestHeaders: expect.any(Function),
+          type: 'SUBJECT.REQUEST',
+        }),
       )
     })
+    const forwarded = subjectEventSpy.mock.calls.at(-1)?.[0]
+    await expect(forwarded.requestHeaders()).resolves.toBe(requestHeaders)
+    actor.stop()
+  })
+
+  it('closes an active connection when credential refresh fails', async () => {
+    const actor = createActor(createTestMachine()).start()
+    actor.send({
+      type: 'CONFIGURE',
+      config: {
+        opts: { servers: ['ws://localhost:4222'] },
+        maxRetries: 3,
+        credentials: {
+          refreshBeforeExpiryMs: 5,
+          adapter: {
+            load: async () => ({ expiresAt: Date.now() + 100 }),
+            refresh: async () => {
+              throw new Error('refresh failed')
+            },
+          },
+        },
+      },
+    })
+    actor.send({ type: 'CONNECT' })
+    await vi.waitFor(() => expect(actor.getSnapshot().value).toBe('connected'))
+
+    await vi.waitFor(() => expect(actor.getSnapshot().value).toBe('closed'))
     actor.stop()
   })
 

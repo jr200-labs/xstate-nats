@@ -13,6 +13,15 @@ export { KvSubscriptionKey, type KvSubscriptionConfig } from './actions/kv'
 export { parseNatsResult } from './actions/connection'
 export { type AuthConfig } from './actions/types'
 export {
+  credentialMachine,
+  getCredentials,
+  type CredentialActor,
+  type CredentialContext,
+  type NatsCredentialAdapter,
+  type NatsCredentialConfig,
+  type NatsCredentials,
+} from './machines/credentials'
+export {
   byteLength as natsTrafficByteLength,
   createEmptyTrafficMetrics,
   recordTrafficMetric,

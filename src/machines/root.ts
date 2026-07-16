@@ -7,6 +7,7 @@ import { type AuthConfig } from '../actions/types'
 import { InternalStatusEvents as NatsStatusEvents } from '../actions/connection'
 import { withSpan } from '../telemetry'
 import { NatsTrafficResetEvent } from '../traffic'
+import { rejectUnavailableRequest } from '../actions/subject'
 
 export interface NatsDiagnosticsConfig {
   lifecycle?: boolean
@@ -104,6 +105,10 @@ export const natsMachine = setup({
     events: {} as Events,
   },
   actions: {
+    rejectUnavailableRequest: ({ event }) => {
+      if (event.type !== 'SUBJECT.REQUEST') return
+      rejectUnavailableRequest(event)
+    },
     doReset: assign({
       natsConfig: (_) => undefined,
       connection: (_) => null,
@@ -222,6 +227,7 @@ export const natsMachine = setup({
   states: {
     not_configured: {
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONFIGURE: {
           target: 'configured',
           actions: ['configureNats'],
@@ -238,6 +244,7 @@ export const natsMachine = setup({
     configured: {
       entry: ['clearDeferredCloseActions'],
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONFIGURE: {
           actions: ['configureNats', lifecycleAction('configured')],
         },
@@ -261,6 +268,7 @@ export const natsMachine = setup({
     connecting: {
       entry: ['clearDeferredCloseActions', lifecycleAction('connecting')],
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONFIGURE: {
           target: 'connecting',
           reenter: true,
@@ -311,6 +319,7 @@ export const natsMachine = setup({
         sendTo('kv', ({ context }) => ({ type: 'KV.CONNECT', connection: context.connection! })),
       ],
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONFIGURE: {
           target: 'closing',
           actions: [
@@ -465,6 +474,7 @@ export const natsMachine = setup({
         },
       },
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         'NATS_CONNECTION.*': {
           actions: lifecycleAction('closing'),
         },
@@ -490,6 +500,7 @@ export const natsMachine = setup({
         }),
       ],
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONFIGURE: {
           target: 'configured',
           actions: ['configureNats', lifecycleAction('closed')],
@@ -514,6 +525,7 @@ export const natsMachine = setup({
     error: {
       entry: ['clearDeferredCloseActions', lifecycleAction('error')],
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         CONNECT: {
           target: 'connecting',
           actions: lifecycleAction('error'),

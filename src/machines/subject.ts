@@ -9,6 +9,7 @@ import { assign, sendParent, setup } from 'xstate'
 import {
   RequestResult,
   SubjectSubscriptionConfig,
+  rejectUnavailableRequest,
   subjectConsolidateState,
   subjectRequest,
   subjectPublish,
@@ -74,6 +75,12 @@ export const subjectManagerLogic = setup({
   guards: {
     hasPendingSync: ({ context }) => {
       return context.syncRequired > 0
+    },
+  },
+  actions: {
+    rejectUnavailableRequest: ({ event }) => {
+      if (event.type !== 'SUBJECT.REQUEST') return
+      rejectUnavailableRequest(event)
     },
   },
 }).createMachine({
@@ -157,6 +164,7 @@ export const subjectManagerLogic = setup({
   states: {
     subject_idle: {
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         'SUBJECT.DISCONNECTED': {},
         'SUBJECT.CONNECT': {
           target: 'subject_check_sync',
@@ -298,6 +306,7 @@ export const subjectManagerLogic = setup({
     },
     subject_error: {
       on: {
+        'SUBJECT.REQUEST': { actions: 'rejectUnavailableRequest' },
         'SUBJECT.DISCONNECTED': {
           target: 'subject_disconnecting',
         },

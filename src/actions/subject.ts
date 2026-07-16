@@ -1,4 +1,5 @@
 import {
+  deadline,
   Msg,
   MsgHdrs,
   NatsConnection,
@@ -6,6 +7,7 @@ import {
   RequestOptions,
   Subscription,
   SubscriptionOptions,
+  TimeoutError,
 } from '@nats-io/nats-core'
 import { parseNatsResult } from './connection'
 import {
@@ -24,6 +26,25 @@ export type SubjectSubscriptionConfig = {
 }
 
 export type RequestResult = { ok: true } | { ok: false; error: Error }
+
+function notifyRequestResult(
+  callback: ((result: RequestResult) => void) | undefined,
+  result: RequestResult,
+) {
+  try {
+    callback?.(result)
+  } catch (error) {
+    console.error('NATS request result callback failed', error)
+  }
+}
+
+export function rejectUnavailableRequest(event: {
+  onRequestResult?: (result: RequestResult) => void
+}) {
+  const error = new Error('NATS connection is not available')
+  notifyRequestResult(event.onRequestResult, { ok: false, error })
+  if (!event.onRequestResult) console.error(error.message)
+}
 
 export const subjectConsolidateState = ({
   input,
@@ -156,34 +177,55 @@ export const subjectRequest = ({
       // declares `timeout` as required but nats-core only enforces it when
       // opts is provided; cast preserves the "no opts = use conn default"
       // contract.
-      const request = (providedHeaders?: MsgHdrs) => {
+      const request = (providedHeaders?: MsgHdrs, timeout = opts?.timeout) => {
         const headers = injectContextIntoHeaders(opts?.headers)
         providedHeaders?.keys().forEach((key) => {
           const value = providedHeaders.get(key)
           if (value) headers.set(key, value)
         })
         const requestOpts = (opts ? { ...opts, headers } : { headers }) as RequestOptions
+        if (timeout !== undefined) requestOpts.timeout = timeout
 
-        return connection.request(subject, payload, requestOpts)
+        try {
+          return connection.request(subject, payload, requestOpts)
+        } catch (error) {
+          return Promise.reject(error)
+        }
       }
 
-      return (requestHeaders ? requestHeaders().then(request) : request())
-        .then((msg: Msg) => {
+      const timeout = opts?.timeout
+      const startedAt = performance.now()
+      const preparedHeaders = requestHeaders ? Promise.resolve().then(requestHeaders) : undefined
+      const send = preparedHeaders
+        ? (timeout === undefined ? preparedHeaders : deadline(preparedHeaders, timeout)).then(
+            (headers) => {
+              if (timeout === undefined) return request(headers)
+              const remaining = Math.floor(timeout - (performance.now() - startedAt))
+              if (remaining <= 0) throw new TimeoutError()
+              return request(headers, remaining)
+            },
+          )
+        : request()
+
+      const fail = (err: unknown) => {
+        recordError(span, 'xstate.nats.error', err)
+        const error = err instanceof Error ? err : new Error(String(err))
+        notifyRequestResult(onRequestResult, { ok: false, error })
+        if (!onRequestResult) {
+          console.error(`RequestReply error for subject "${subject}"`, err)
+        }
+      }
+
+      return send.then((msg: Msg) => {
+        try {
           onDownloadBytes?.(msg.data?.length ?? 0)
           callback(parseNatsResult(msg))
-          onRequestResult?.({ ok: true })
-        })
-        .catch((err) => {
-          // Record on span manually so we can swallow the rejection here —
-          // the original fire-and-forget API didn't propagate request errors
-          // to callers and changing that now would be a breaking behaviour.
-          recordError(span, 'xstate.nats.error', err)
-          const error = err instanceof Error ? err : new Error(String(err))
-          onRequestResult?.({ ok: false, error })
-          if (!onRequestResult) {
-            console.error(`RequestReply error for subject "${subject}"`, err)
-          }
-        })
+        } catch (error) {
+          fail(error)
+          return
+        }
+        notifyRequestResult(onRequestResult, { ok: true })
+      }, fail)
     },
   )
 }

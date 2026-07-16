@@ -99,6 +99,9 @@ requestHeaders: async () => {
 }
 ```
 
+Header preparation and the NATS round trip share the request's `opts.timeout`. Requests made while
+the connection is unavailable fail through `onRequestResult` instead of being left pending.
+
 ### Key-Value Operations
 
 ```typescript

@@ -85,6 +85,26 @@ describe('subjectManagerLogic', () => {
     parentActor.stop()
   })
 
+  it('fails requests immediately while disconnected', () => {
+    const parentActor = createActor(createParentMachine())
+    const onRequestResult = vi.fn()
+    parentActor.start()
+
+    parentActor.send({
+      type: 'SUBJECT.REQUEST',
+      subject: 'test.req',
+      payload: {},
+      callback: vi.fn(),
+      onRequestResult,
+    })
+
+    expect(onRequestResult).toHaveBeenCalledWith({
+      ok: false,
+      error: expect.objectContaining({ message: 'NATS connection is not available' }),
+    })
+    parentActor.stop()
+  })
+
   it('should have empty subscriptions initially', () => {
     const parentActor = createActor(createParentMachine())
     parentActor.start()
@@ -301,11 +321,14 @@ describe('subjectManagerLogic', () => {
       authHeaders.set('authorization', 'Bearer refreshed-token')
       return authHeaders
     })
+    const staleHeaders = headers()
+    staleHeaders.set('authorization', 'Bearer stale-token')
 
     parentActor.send({
       type: 'SUBJECT.REQUEST',
       subject: 'test.req',
       payload: { data: 1 },
+      opts: { headers: staleHeaders, timeout: 1000 },
       callback: vi.fn(),
       requestHeaders,
     })

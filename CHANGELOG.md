@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.22](https://github.com/jr200-labs/xstate-nats/compare/v0.9.21...v0.9.22) (2026-07-16)
+
+
+### Features
+
+* manage and observe short-lived NATS credentials with XState ([#114](https://github.com/jr200-labs/xstate-nats/issues/114)) ([d55e808](https://github.com/jr200-labs/xstate-nats/commit/d55e808fff283ac01e2e51f0ae5be78d0bdd67ea))
+
 ## [0.9.21](https://github.com/jr200-labs/xstate-nats/compare/v0.9.20...v0.9.21) (2026-07-16)
 
 

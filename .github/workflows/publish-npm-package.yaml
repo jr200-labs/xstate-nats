@@ -26,6 +26,11 @@ on:
         required: false
         type: string
         default: ""
+      preview-id:
+        description: "Publish an immutable -pr preview without changing the latest tag"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -44,5 +49,6 @@ jobs:
       checkout-ref: ${{ fromJson(needs.configure.outputs.context).checkout-ref }}
       pnpm-run-test: ${{ github.event.inputs.pnpm-run-test || 'true' }}
       pnpm-publish-args: ${{ github.event.inputs.pnpm-publish-args || '' }}
+      preview-id: ${{ github.event.inputs.preview-id || '' }}
     secrets:
       npmjs_api_token: ${{ secrets.NPMJS_API_TOKEN }}

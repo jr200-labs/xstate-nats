@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.23](https://github.com/jr200-labs/xstate-nats/compare/v0.9.22...v0.9.23) (2026-07-23)
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#117](https://github.com/jr200-labs/xstate-nats/issues/117)) ([33f209b](https://github.com/jr200-labs/xstate-nats/commit/33f209ba140b3f256ea7956b25aa97307aa83ce6))
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.32 ([#118](https://github.com/jr200-labs/xstate-nats/issues/118)) ([d85801f](https://github.com/jr200-labs/xstate-nats/commit/d85801fea57a0076dcfeed001ce936a8af187769))
+
 ## [0.9.22](https://github.com/jr200-labs/xstate-nats/compare/v0.9.21...v0.9.22) (2026-07-16)
 
 

@@ -57,7 +57,7 @@
     "@opentelemetry/core": "^2.10.0",
     "@opentelemetry/sdk-trace-base": "^2.10.0",
     "@vitest/coverage-v8": "^4.1.10",
-    "eslint": "^10.8.0",
+    "eslint": "^10.8.1",
     "globals": "^17.9.0",
     "prettier": "^3.9.6",
     "syncpack": "^15.3.2",

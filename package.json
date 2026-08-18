@@ -56,13 +56,13 @@
     "@opentelemetry/context-async-hooks": "^2.10.0",
     "@opentelemetry/core": "^2.10.0",
     "@opentelemetry/sdk-trace-base": "^2.10.0",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^10.8.1",
     "globals": "^17.11.0",
     "prettier": "^3.9.6",
     "syncpack": "^15.3.3",
     "typescript": "^7.0.2",
     "typescript-eslint": "^8.67.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }

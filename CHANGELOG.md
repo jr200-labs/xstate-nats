@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.24](https://github.com/jr200-labs/xstate-nats/compare/v0.9.23...v0.9.24) (2026-08-19)
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#126](https://github.com/jr200-labs/xstate-nats/issues/126)) ([49fef46](https://github.com/jr200-labs/xstate-nats/commit/49fef46fd07952696a645863dc2f739af7765f52))
+* **deps:** update all non-major dependencies to ^4.1.11 ([#130](https://github.com/jr200-labs/xstate-nats/issues/130)) ([d7030c5](https://github.com/jr200-labs/xstate-nats/commit/d7030c5f677ba936051fbabb0a21134efd0961d8))
+* **deps:** update dependency eslint to ^10.8.1 ([#123](https://github.com/jr200-labs/xstate-nats/issues/123)) ([53e03df](https://github.com/jr200-labs/xstate-nats/commit/53e03dfdeaa74ea54d10e7743ac573ad3871816d))
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.36 ([#124](https://github.com/jr200-labs/xstate-nats/issues/124)) ([16a3bb4](https://github.com/jr200-labs/xstate-nats/commit/16a3bb4f2642dec151aef02d8f40024dcd7dc7ee))
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.37 ([#127](https://github.com/jr200-labs/xstate-nats/issues/127)) ([86b2031](https://github.com/jr200-labs/xstate-nats/commit/86b2031e0f143b8dcfb9b03df621e3f418de3f92))
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.38 ([#129](https://github.com/jr200-labs/xstate-nats/issues/129)) ([7bfc79e](https://github.com/jr200-labs/xstate-nats/commit/7bfc79edaf952b91ada3392f36fd0213cfca40cc))
+* **deps:** update pnpm to v11.22.0 ([#128](https://github.com/jr200-labs/xstate-nats/issues/128)) ([03954e7](https://github.com/jr200-labs/xstate-nats/commit/03954e77002b1b91ecda2228bc23e1e8af6482c2))
+
 ## [0.9.23](https://github.com/jr200-labs/xstate-nats/compare/v0.9.22...v0.9.23) (2026-08-04)
 
 

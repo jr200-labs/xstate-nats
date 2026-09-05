@@ -63,3 +63,19 @@ jobs:
       runner: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.runner == 'self-hosted' && 'self-hosted' || github.event_name == 'workflow_dispatch' && github.event.inputs.runner == 'github-hosted' && 'ubuntu-latest' || fromJSON(vars.RUNNER_PROFILES)[vars.RUNNER_PROFILE].default }}
     secrets:
       npmjs_api_token: ${{ secrets.NPMJS_API_TOKEN }}
+
+  notify-renovate:
+    needs: [configure, main]
+    if: github.event_name == 'repository_dispatch'
+    uses: jr200-labs/github-action-templates/.github/workflows/notify_artifact_published.yaml@master
+    with:
+      checkout-ref: ${{ fromJson(needs.configure.outputs.context).checkout-ref }}
+      publisher: npm
+      component: ${{ fromJson(needs.configure.outputs.context).component || '.' }}
+      version: ${{ fromJson(needs.configure.outputs.context).tag }}
+      source-sha: ${{ fromJson(needs.configure.outputs.context).sha || '' }}
+      dispatch-client-id: ${{ vars.RENOVATE_DISPATCH_CLIENT_ID || vars.INTEGRATION_CLIENT_ID }}
+      runner: ${{ fromJSON(vars.RUNNER_PROFILES)[vars.RUNNER_PROFILE].default }}
+    secrets:
+      dispatch_app_private_key: ${{ secrets.RENOVATE_DISPATCH_APP_PRIVATE_KEY }}
+      integration_app_private_key: ${{ secrets.INTEGRATION_APP_PRIVATE_KEY }}

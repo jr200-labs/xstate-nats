@@ -1,0 +1,23 @@
+repos:
+  - repo: local
+    hooks:
+      - id: sync-shared
+        name: sync shared configs
+        entry: bash -c 'mkdir -p .shared; [ -x .shared/sync.sh ] || { curl -sfL --max-time 10 "https://raw.githubusercontent.com/jr200-labs/github-action-templates/master/shared/sync.sh" -o .shared/sync.sh 2>/dev/null && chmod +x .shared/sync.sh; }; [ -x .shared/sync.sh ] && .shared/sync.sh node; exit 0'
+        language: system
+        always_run: true
+        pass_filenames: false
+
+      - id: eslint
+        name: eslint (shared config)
+        entry: bash -c 'command -v pnpm >/dev/null 2>&1 || { echo "pnpm not found — skipping eslint"; exit 0; }; pnpm exec eslint --config .shared/eslint.config.mjs "$@"'
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
+        pass_filenames: true
+
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.22.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ['@commitlint/config-conventional']

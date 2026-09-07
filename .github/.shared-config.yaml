@@ -1,4 +1,4 @@
-ref: shared-v0.1.46
+ref: shared-v0.1.54
 workflows:
   - hygiene
   - node

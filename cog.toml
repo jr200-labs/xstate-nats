@@ -1,6 +1,0 @@
-#:schema https://docs.cocogitto.io/cog-schema.json
-
-ignore_merge_commits = true
-
-[commit_types]
-deps = { changelog_title = "Dependencies" }

@@ -1,4 +1,0 @@
-maxRetries: 3
-opts:
-  servers:
-    - ws://127.0.0.1:42222

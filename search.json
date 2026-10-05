@@ -1,0 +1,284 @@
+[
+  {
+    "objectID": "subjects.html",
+    "href": "subjects.html",
+    "title": "Subjects",
+    "section": "",
+    "text": "Send subject events to a connected natsMachine actor. Use encoded bytes for wire payloads; parseNatsResult parses incoming JSON and falls back to a string.",
+    "crumbs": [
+      "Overview",
+      "Subjects"
+    ]
+  },
+  {
+    "objectID": "subjects.html#subscribe-and-publish",
+    "href": "subjects.html#subscribe-and-publish",
+    "title": "Subjects",
+    "section": "Subscribe and publish",
+    "text": "Subscribe and publish\nconst encode = (value: unknown) =&gt; new TextEncoder().encode(JSON.stringify(value))\n\nactor.send({\n  type: 'SUBJECT.SUBSCRIBE',\n  config: { subject: 'demo.events', callback: (data) =&gt; console.log(data) },\n})\nactor.send({\n  type: 'SUBJECT.PUBLISH',\n  subject: 'demo.events',\n  payload: encode({ message: 'hello' }),\n  onPublishResult: (result) =&gt; {\n    if (!result.ok) console.error(result.error)\n  },\n})\nSubscriptions are keyed by subject; one target subscription is retained per subject. SUBJECT.UNSUBSCRIBE removes a subject, and SUBJECT.UNSUBSCRIBE_ALL clears the target set. Target configurations survive disconnect/reconnect so the subject manager can restore them on the new connection. Recreate the actor for a completely fresh demo session.\nA successful publish callback means the client accepted the publish call. It is not a broker persistence or application-processing acknowledgement.",
+    "crumbs": [
+      "Overview",
+      "Subjects"
+    ]
+  },
+  {
+    "objectID": "subjects.html#request-a-reply",
+    "href": "subjects.html#request-a-reply",
+    "title": "Subjects",
+    "section": "Request a reply",
+    "text": "Request a reply\nactor.send({\n  type: 'SUBJECT.REQUEST',\n  subject: 'demo.echo',\n  payload: encode({ question: 'hello' }),\n  opts: { timeout: 1500 },\n  callback: (reply) =&gt; console.log('reply', reply),\n  onRequestResult: (result) =&gt; {\n    if (!result.ok) console.error('request failed', result.error)\n  },\n})\nReal NATS needs a responder on the subject. The demo sandbox supplies a local responder only for demo.echo. A request failure is reported through onRequestResult; the reply callback runs on success. requestHeaders can asynchronously prepare additional headers before sending. When opts.timeout is provided, header preparation and the NATS request share that time budget.\nThe root obtains current credential headers for each request when configured with a credential adapter. User-provided requestHeaders are merged with those headers. Avoid logging authentication headers or placing credentials in the message body.",
+    "crumbs": [
+      "Overview",
+      "Subjects"
+    ]
+  },
+  {
+    "objectID": "observability.html",
+    "href": "observability.html",
+    "title": "Observability",
+    "section": "",
+    "text": "@opentelemetry/api is a peer dependency. Applications register their own tracer and meter providers; without a provider, the instrumentation is a no-op.\nSubject operations emit xstate.nats.subscribe, xstate.nats.message, xstate.nats.publish, and xstate.nats.request spans. NATS reconnect events emit xstate.nats.reconnect; KV watches emit xstate.nats.kv.watch and xstate.nats.kv.entry. Publish/request operations inject trace context into NATS headers; received messages extract it so traces can cross application boundaries.",
+    "crumbs": [
+      "Overview",
+      "Observability"
+    ]
+  },
+  {
+    "objectID": "observability.html#lifecycle-diagnostics",
+    "href": "observability.html#lifecycle-diagnostics",
+    "title": "Observability",
+    "section": "Lifecycle diagnostics",
+    "text": "Lifecycle diagnostics\nconfig: {\n  opts: { servers: ['wss://your-nats.example'] },\n  maxRetries: 3,\n  diagnostics: { lifecycle: true },\n}\nWhen enabled, root transitions emit sanitized xstate.nats.lifecycle spans and console breadcrumbs with state, event type, server URLs, retry count, auth type, and manager readiness. Raw protocol debugging is separate from lifecycle diagnostics.",
+    "crumbs": [
+      "Overview",
+      "Observability"
+    ]
+  },
+  {
+    "objectID": "observability.html#credential-instrumentation",
+    "href": "observability.html#credential-instrumentation",
+    "title": "Observability",
+    "section": "Credential instrumentation",
+    "text": "Credential instrumentation\nCredential load/refresh spans are xstate.nats.credentials.load and .refresh. Metrics are:\n\n\n\n\n\n\n\nMetric\nKind\n\n\n\n\nxstate.nats.credentials.operations\nCounter by operation/outcome\n\n\nxstate.nats.credentials.operation.duration\nDuration histogram in milliseconds\n\n\nxstate.nats.credentials.state.transitions\nCounter by state\n\n\n\nSet credentials.diagnostics: true for sanitized credential state/operation breadcrumbs. Credential contents and provider error messages are excluded from credential instrumentation. The browser demo’s State panel likewise summarizes state and counters without dumping auth configuration.",
+    "crumbs": [
+      "Overview",
+      "Observability"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "XState actors for NATS",
+    "section": "",
+    "text": "@jr200-labs/xstate-nats coordinates a NATS WebSocket connection, subject subscriptions, request/reply, key-value operations, and short-lived credentials using XState v5.\npnpm add @jr200-labs/xstate-nats xstate @opentelemetry/api\nStart with the browser demo: configure a connection, subscribe, publish a message, and watch the active state. Its default sandbox needs no broker. Live mode connects directly from your browser to your own NATS WebSocket endpoint.\n\n\n\nTask\nGuide\n\n\n\n\nCreate an actor and connect\nGetting started\n\n\nSubscribe, publish, and request a reply\nSubjects\n\n\nCreate a bucket, store values, and watch keys\nKey-value\n\n\nLoad and refresh authentication\nCredentials\n\n\nUnderstand events, states, and errors\nReference\n\n\nInspect spans, metrics, and lifecycle logs\nObservability\n\n\n\nNATS still requires a server for real messaging. The hosted documentation and demo UI are static files; GitHub Pages does not host a broker. The sandbox adapter belongs only to the demo and is not shipped as part of the library."
+  },
+  {
+    "objectID": "demo.html",
+    "href": "demo.html",
+    "title": "Live demo",
+    "section": "",
+    "text": "No NATS server runs in this browser. The default sandbox simulates messaging inside this tab. Real mode connects to a separate server that you provide. Open full screen.",
+    "crumbs": [
+      "Overview",
+      "Live demo"
+    ]
+  },
+  {
+    "objectID": "demo.html#try-recovery",
+    "href": "demo.html#try-recovery",
+    "title": "Live demo",
+    "section": "Try recovery",
+    "text": "Try recovery\n\nConfigure and connect. In Publish / subscribe, subscribe to a subject. For KV, select Real NATS, create a bucket in KV / watch, and subscribe to a key.\nOpen Recovery, choose subject or KV, and select Disconnect & reconnect. The client connection closes; active handles disappear, while the target configurations are retained. The library rebuilds them on the next connection.\nSelect Send verification value. The demo generates a unique value and only reports verified delivery when that value arrives through the restored subscription. Replayed historical KV entries cannot satisfy this check.\nBack in the subscription controls, unsubscribe and watch the target and active maps clear. Subscribe again to see the child machine sync a new handle. Unsubscribe all clears that manager’s targets.\n\nThis walkthrough deliberately reconnects the client; it does not stop a broker or emulate a network outage. To explore a real outage, stop/restart your own disposable development broker while viewing the inspector. NATS applies maxReconnectAttempts; a final close enters the root’s closed state, from which Connect establishes a fresh connection and restores targets. Core subject messages missed while disconnected are not replayed.",
+    "crumbs": [
+      "Overview",
+      "Live demo"
+    ]
+  },
+  {
+    "objectID": "demo.html#run-the-live-recovery-test",
+    "href": "demo.html#run-the-live-recovery-test",
+    "title": "Live demo",
+    "section": "Run the live recovery test",
+    "text": "Run the live recovery test\nWith a disposable local broker running with the repository’s nats-server.conf:\nDEMO_NATS_WS=ws://127.0.0.1:42222 pnpm demo:test\nThis creates an isolated test bucket, verifies new KV delivery after reconnect, unsubscribes/resubscribes, and removes its bucket afterward. The documentation CI runs this against an ephemeral broker. Without the environment variable, the live test is skipped and browser sandbox tests still run.\nSee getting started to start a local WebSocket broker.",
+    "crumbs": [
+      "Overview",
+      "Live demo"
+    ]
+  },
+  {
+    "objectID": "credentials.html",
+    "href": "credentials.html",
+    "title": "Credentials",
+    "section": "",
+    "text": "NatsConnectionConfig.auth supports userpass, token, and decentralised. Omit it for an unauthenticated development broker.\nauth: { type: 'token', token: sessionToken }\n// or:\nauth: { type: 'userpass', user: username, pass: password }\n// or sentinel credentials combined with user/password:\nauth: { type: 'decentralised', sentinelB64, user: username, pass: password }\nThe live demo accepts an optional token, keeps it in memory, and does not save it to local storage or show it in actor details. Browser code cannot hide a credential from the person running that browser; use credentials scoped to the subjects and operations required.",
+    "crumbs": [
+      "Overview",
+      "Credentials"
+    ]
+  },
+  {
+    "objectID": "credentials.html#static-authentication",
+    "href": "credentials.html#static-authentication",
+    "title": "Credentials",
+    "section": "",
+    "text": "NatsConnectionConfig.auth supports userpass, token, and decentralised. Omit it for an unauthenticated development broker.\nauth: { type: 'token', token: sessionToken }\n// or:\nauth: { type: 'userpass', user: username, pass: password }\n// or sentinel credentials combined with user/password:\nauth: { type: 'decentralised', sentinelB64, user: username, pass: password }\nThe live demo accepts an optional token, keeps it in memory, and does not save it to local storage or show it in actor details. Browser code cannot hide a credential from the person running that browser; use credentials scoped to the subjects and operations required.",
+    "crumbs": [
+      "Overview",
+      "Credentials"
+    ]
+  },
+  {
+    "objectID": "credentials.html#short-lived-credentials",
+    "href": "credentials.html#short-lived-credentials",
+    "title": "Credentials",
+    "section": "Short-lived credentials",
+    "text": "Short-lived credentials\nProvide an application-owned adapter when credentials expire. The library does not depend on an identity provider.\nactor.send({\n  type: 'CONFIGURE',\n  config: {\n    opts: { servers: ['wss://your-nats.example'] },\n    maxRetries: 3,\n    credentials: {\n      refreshBeforeExpiryMs: 60_000,\n      operationTimeoutMs: 30_000,\n      adapter: {\n        load: () =&gt; loadSessionCredentials(),\n        refresh: (current) =&gt; refreshSessionCredentials(current),\n      },\n    },\n  },\n})\nloadSessionCredentials and refreshSessionCredentials are functions supplied by your application. They return NatsCredentials: optional auth, optional NATS requestHeaders, and optional expiresAt in epoch milliseconds. Use the earliest expiry of credentials contained in that value.\nThe child credential actor shares concurrent loads, bounds adapter calls, and refreshes before expiry. Refresh results must leave more time than the configured refresh window. NATS reconnect authentication reads the latest cached connection credential synchronously. Requests await current credential headers before sending.\nIf loading/refresh fails or credentials expire without refresh, requests fail closed and an active connection is closed. Repair the application session, send CREDENTIALS.RELOAD, wait for credentials to become ready, and then send CONNECT. Credentials can also be managed directly through the exported credentialMachine and getCredentials.",
+    "crumbs": [
+      "Overview",
+      "Credentials"
+    ]
+  },
+  {
+    "objectID": "getting-started.html",
+    "href": "getting-started.html",
+    "title": "Getting started",
+    "section": "",
+    "text": "The library uses wsconnect from @nats-io/nats-core. Use a ws:// or wss:// server URL, not the TCP nats:// address. An HTTPS page needs a secure wss:// endpoint.\nimport { createActor } from 'xstate'\nimport { natsMachine } from '@jr200-labs/xstate-nats'\n\nconst actor = createActor(natsMachine)\nactor.subscribe((snapshot) =&gt; console.log(snapshot.value))\nactor.start()\n\nactor.send({\n  type: 'CONFIGURE',\n  config: {\n    opts: { servers: ['ws://localhost:42222'], timeout: 3000 },\n    maxRetries: 3,\n  },\n})\nactor.send({ type: 'CONNECT' })\nWait for snapshot.matches('connected') before sending messaging or KV events. The root waits for both child managers to report readiness. A failed initial connection enters error; send CONNECT again to retry or CONFIGURE to replace the configuration.\nFor React, use the same machine with useActor(natsMachine) from @xstate/react. The library has no React dependency.",
+    "crumbs": [
+      "Overview",
+      "Getting started"
+    ]
+  },
+  {
+    "objectID": "getting-started.html#connect-from-a-browser",
+    "href": "getting-started.html#connect-from-a-browser",
+    "title": "Getting started",
+    "section": "",
+    "text": "The library uses wsconnect from @nats-io/nats-core. Use a ws:// or wss:// server URL, not the TCP nats:// address. An HTTPS page needs a secure wss:// endpoint.\nimport { createActor } from 'xstate'\nimport { natsMachine } from '@jr200-labs/xstate-nats'\n\nconst actor = createActor(natsMachine)\nactor.subscribe((snapshot) =&gt; console.log(snapshot.value))\nactor.start()\n\nactor.send({\n  type: 'CONFIGURE',\n  config: {\n    opts: { servers: ['ws://localhost:42222'], timeout: 3000 },\n    maxRetries: 3,\n  },\n})\nactor.send({ type: 'CONNECT' })\nWait for snapshot.matches('connected') before sending messaging or KV events. The root waits for both child managers to report readiness. A failed initial connection enters error; send CONNECT again to retry or CONFIGURE to replace the configuration.\nFor React, use the same machine with useActor(natsMachine) from @xstate/react. The library has no React dependency.",
+    "crumbs": [
+      "Overview",
+      "Getting started"
+    ]
+  },
+  {
+    "objectID": "getting-started.html#run-a-local-nats-broker",
+    "href": "getting-started.html#run-a-local-nats-broker",
+    "title": "Getting started",
+    "section": "Run a local NATS broker",
+    "text": "Run a local NATS broker\nInstall nats-server, then use the repository’s development configuration:\nnats-server -c nats-server.conf\nThis enables JetStream and an unencrypted development WebSocket listener on port 42222. Preview the demo locally and select Real NATS · your server with ws://localhost:42222. The config has verbose development logging; use your own TLS, origin policy, and authentication for a deployed broker. See NATS WebSocket configuration.",
+    "crumbs": [
+      "Overview",
+      "Getting started"
+    ]
+  },
+  {
+    "objectID": "getting-started.html#close-and-recover",
+    "href": "getting-started.html#close-and-recover",
+    "title": "Getting started",
+    "section": "Close and recover",
+    "text": "Close and recover\nactor.send({ type: 'DISCONNECT' })\n// Wait for closed, then reconnect with the current configuration:\nactor.send({ type: 'CONNECT' })\nDISCONNECT drains and closes the connection. RESET is available in configured, closed, and error; it clears the root configuration. Send DISCONNECT and wait for closed before resetting an active session. Calling actor.stop() alone is not a replacement for disconnecting the broker connection.",
+    "crumbs": [
+      "Overview",
+      "Getting started"
+    ]
+  },
+  {
+    "objectID": "getting-started.html#build-the-documentation",
+    "href": "getting-started.html#build-the-documentation",
+    "title": "Getting started",
+    "section": "Build the documentation",
+    "text": "Build the documentation\nUse Node.js 22.12+ and the pnpm version in package.json. Install Quarto.\npnpm install --frozen-lockfile\npnpm demo:dev              # browser demo at http://localhost:3001\nquarto preview docs        # complete documentation site\nquarto render docs         # static output in docs/_site\nQuarto’s pre-render hook installs locked dependencies and builds the demo. Its relative asset paths work both locally and under the GitHub Pages project path. The Documentation workflow renders a preview on pull requests and publishes through the shared Quarto workflow after changes reach master.",
+    "crumbs": [
+      "Overview",
+      "Getting started"
+    ]
+  },
+  {
+    "objectID": "key-value.html",
+    "href": "key-value.html",
+    "title": "Key-value",
+    "section": "",
+    "text": "KV operations need a connected NATS server with JetStream enabled. They are available in the demo’s Real NATS · your server mode. The browser sandbox does not emulate JetStream.",
+    "crumbs": [
+      "Overview",
+      "Key-value"
+    ]
+  },
+  {
+    "objectID": "key-value.html#create-store-and-read",
+    "href": "key-value.html#create-store-and-read",
+    "title": "Key-value",
+    "section": "Create, store, and read",
+    "text": "Create, store, and read\nactor.send({\n  type: 'KV.BUCKET_CREATE', bucket: 'demo',\n  onResult: (result) =&gt; console.log(result),\n})\n// Wait for the create callback before writing.\nactor.send({\n  type: 'KV.PUT', bucket: 'demo', key: 'greeting',\n  value: new TextEncoder().encode(JSON.stringify({ message: 'hello' })),\n  onResult: (result) =&gt; console.log(result),\n})\nactor.send({\n  type: 'KV.GET', bucket: 'demo', key: 'greeting',\n  onResult: (result) =&gt; {\n    if (result && 'error' in result) console.error(result.error)\n    else console.log(parseNatsResult(result))\n  },\n})\nImport parseNatsResult from the library. KV.GET returns a NATS KV entry, null, or an error wrapper; decode the entry with parseNatsResult. Create returns { ok: false } if the bucket already exists. Always wait for callbacks when later operations depend on earlier ones.",
+    "crumbs": [
+      "Overview",
+      "Key-value"
+    ]
+  },
+  {
+    "objectID": "key-value.html#watch-changes",
+    "href": "key-value.html#watch-changes",
+    "title": "Key-value",
+    "section": "Watch changes",
+    "text": "Watch changes\nactor.send({\n  type: 'KV.SUBSCRIBE',\n  config: {\n    bucket: 'demo', key: 'greeting',\n    callback: (entry) =&gt; console.log(entry),\n  },\n})\nThe callback receives { bucket, key, value }, parsing JSON where possible. Watch configurations are keyed by bucket/key and survive reconnect. Current code suppresses DEL entries in the callback. KV.UNSUBSCRIBE removes one watch; KV.UNSUBSCRIBE_ALL clears all targets.\nKV.BUCKET_LIST without a bucket lists bucket status objects. With a bucket it lists keys. KV.DELETE deletes one key; KV.BUCKET_DELETE deletes the backing stream and should be used only when you intend to remove the whole bucket. Operation failures are returned through onResult; the root may still remain connected, so inspect the result rather than only the root state.",
+    "crumbs": [
+      "Overview",
+      "Key-value"
+    ]
+  },
+  {
+    "objectID": "reference.html",
+    "href": "reference.html",
+    "title": "Reference",
+    "section": "",
+    "text": "State\nMeaning\n\n\n\n\nnot_configured\nWaiting for CONFIGURE\n\n\nconfigured\nConfiguration accepted; CONNECT starts a connection\n\n\nconnecting\nConnection actor is running\n\n\ninitialise_managers\nWaiting for subject and KV readiness\n\n\nconnected\nMessaging events are forwarded to child managers\n\n\nclosing\nDraining/closing and detaching managers\n\n\nclosed\nConnection ended; current config can reconnect\n\n\nerror\nConnection/close failed; inspect context.error\n\n\n\nUse snapshot.matches(...) to check state. CONFIGURE during an active connection closes it and reconnects with the new configuration; during an in-flight connect it restarts that connect. CONNECT during closing queues a reconnect. A final NATS_CONNECTION.CLOSE clears the connection and manager readiness and enters closed.\nNATS’s own reconnect settings live in config.opts. The root’s maxRetries field does not implement an automatic XState retry loop; failed connection attempts enter error and increment the retry count. Send CONNECT to retry from that state.",
+    "crumbs": [
+      "Overview",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#root-lifecycle",
+    "href": "reference.html#root-lifecycle",
+    "title": "Reference",
+    "section": "",
+    "text": "State\nMeaning\n\n\n\n\nnot_configured\nWaiting for CONFIGURE\n\n\nconfigured\nConfiguration accepted; CONNECT starts a connection\n\n\nconnecting\nConnection actor is running\n\n\ninitialise_managers\nWaiting for subject and KV readiness\n\n\nconnected\nMessaging events are forwarded to child managers\n\n\nclosing\nDraining/closing and detaching managers\n\n\nclosed\nConnection ended; current config can reconnect\n\n\nerror\nConnection/close failed; inspect context.error\n\n\n\nUse snapshot.matches(...) to check state. CONFIGURE during an active connection closes it and reconnects with the new configuration; during an in-flight connect it restarts that connect. CONNECT during closing queues a reconnect. A final NATS_CONNECTION.CLOSE clears the connection and manager readiness and enters closed.\nNATS’s own reconnect settings live in config.opts. The root’s maxRetries field does not implement an automatic XState retry loop; failed connection attempts enter error and increment the retry count. Send CONNECT to retry from that state.",
+    "crumbs": [
+      "Overview",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#event-families",
+    "href": "reference.html#event-families",
+    "title": "Reference",
+    "section": "Event families",
+    "text": "Event families\n\n\n\n\n\n\n\nFamily\nEvents\n\n\n\n\nConnection\nCONFIGURE, CONNECT, DISCONNECT, RESET, CREDENTIALS.RELOAD\n\n\nSubjects\nSUBJECT.SUBSCRIBE, SUBJECT.UNSUBSCRIBE, SUBJECT.UNSUBSCRIBE_ALL, SUBJECT.PUBLISH, SUBJECT.REQUEST\n\n\nBuckets\nKV.BUCKET_CREATE, KV.BUCKET_DELETE, KV.BUCKET_LIST\n\n\nValues\nKV.PUT, KV.GET, KV.DELETE, KV.SUBSCRIBE, KV.UNSUBSCRIBE, KV.UNSUBSCRIBE_ALL\n\n\nTraffic\nMETRICS.RESET_UPLOAD, METRICS.RESET_DOWNLOAD, METRICS.RESET_ALL\n\n\n\nTraffic reset events optionally select a metric source. Subject and KV child snapshots expose trafficMetrics; counters measure application payload bytes rather than total protocol wire traffic.",
+    "crumbs": [
+      "Overview",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#public-exports",
+    "href": "reference.html#public-exports",
+    "title": "Reference",
+    "section": "Public exports",
+    "text": "Public exports\nThe package exports natsMachine, subjectManagerLogic, kvManagerLogic, credentialMachine, getCredentials, KvSubscriptionKey, parseNatsResult, credential and event/context types, and traffic metric helpers. See src/index.ts for the complete typed export surface.",
+    "crumbs": [
+      "Overview",
+      "Reference"
+    ]
+  },
+  {
+    "objectID": "reference.html#error-behavior",
+    "href": "reference.html#error-behavior",
+    "title": "Reference",
+    "section": "Error behavior",
+    "text": "Error behavior\nConnection failures are root errors. Subject request/publish failures use their result callbacks. KV operation failures use onResult; Subscription and watch setup/removal failures enter subject_error or kv_error. Inspect that child’s context.error (an aggregate with per-target causes). Successful handles remain active, failed removals retain their handles, and desired subscriptions remain available for retry. After fixing the underlying problem, disconnect and reconnect to restore subscriptions. Direct child users can send SUBJECT.CONNECT or KV.CONNECT to retry with their connection. A root connected state does not mean every operation succeeded.\nThe demo handles expected errors in its feedback area and Output panel. Its diagram intentionally shows the main lifecycle paths rather than every wildcard, reconfigure, and internal status transition.",
+    "crumbs": [
+      "Overview",
+      "Reference"
+    ]
+  }
+]

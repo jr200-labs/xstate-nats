@@ -1,6 +1,0 @@
-ref: shared-v0.1.74
-workflows:
-  - hygiene
-  - node
-  - release
-  - npm-package

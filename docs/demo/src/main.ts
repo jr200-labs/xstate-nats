@@ -200,7 +200,7 @@ function refresh() {
   const targets = inventory ? [...inventory.context.subscriptionConfigs.keys()] : []
   const handles = inventory ? [...inventory.context.subscriptions.keys()] : []
   element('subscription-inventory').textContent =
-    `Retained targets (${targets.length}): ${targets.join(', ') || 'none'}\nActive handles (${handles.length}): ${handles.join(', ') || 'none'}`
+    `Retained targets (${targets.length}): ${targets.join(', ') || 'none'}\nActive handles (${handles.length}): ${handles.join(', ') || 'none'}${inventory?.context.error ? `\nSync error: ${inventory.context.error.message}` : ''}`
   const key = KvSubscriptionKey.key(value('bucket'), value('key'))
   const watched = kv?.context.subscriptionConfigs.has(key)
   element<HTMLButtonElement>('watch').disabled = !connected || sandbox || !!watched

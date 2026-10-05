@@ -37,6 +37,6 @@ The package exports `natsMachine`, `subjectManagerLogic`, `kvManagerLogic`, `cre
 
 ## Error behavior
 
-Connection failures are root errors. Subject request/publish failures use their result callbacks. KV operation failures use `onResult`; watch/subscription failures can also be reported through telemetry or the console. A root `connected` state does not mean every operation succeeded.
+Connection failures are root errors. Subject request/publish failures use their result callbacks. KV operation failures use `onResult`; Subscription and watch setup/removal failures enter `subject_error` or `kv_error`. Inspect that child's `context.error` (an aggregate with per-target causes). Successful handles remain active, failed removals retain their handles, and desired subscriptions remain available for retry. After fixing the underlying problem, disconnect and reconnect to restore subscriptions. Direct child users can send `SUBJECT.CONNECT` or `KV.CONNECT` to retry with their connection. A root `connected` state does not mean every operation succeeded.
 
 The demo handles expected errors in its feedback area and Output panel. Its diagram intentionally shows the main lifecycle paths rather than every wildcard, reconfigure, and internal status transition.

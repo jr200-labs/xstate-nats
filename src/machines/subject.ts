@@ -7,6 +7,13 @@ import {
 } from '@nats-io/nats-core'
 import { assign, sendParent, setup } from 'xstate'
 import {
+  beginSubscriptionSync,
+  detachSubscriptions,
+  finishSubscriptionSync,
+  hasPendingSync,
+  updateSubscriptionTarget,
+} from './subscriptions'
+import {
   RequestResult,
   SubjectSubscriptionConfig,
   rejectUnavailableRequest,
@@ -73,9 +80,7 @@ export const subjectManagerLogic = setup({
     events: {} as Events,
   },
   guards: {
-    hasPendingSync: ({ context }) => {
-      return context.syncRequired > 0
-    },
+    hasPendingSync,
   },
   actions: {
     rejectUnavailableRequest: ({ event }) => {
@@ -133,24 +138,14 @@ export const subjectManagerLogic = setup({
                 downloadBytes: bytes,
               }),
           }
-          const newConfigs = new Map(context.subscriptionConfigs)
-          newConfigs.set(config.subject, config)
-          return {
-            subscriptionConfigs: newConfigs,
-            syncRequired: context.syncRequired + 1,
-          }
+          return updateSubscriptionTarget(context, config.subject, config)
         }),
       ],
     },
     'SUBJECT.UNSUBSCRIBE': {
       actions: [
         assign(({ context, event }) => {
-          const newConfigs = new Map(context.subscriptionConfigs)
-          newConfigs.delete(event.subject)
-          return {
-            subscriptionConfigs: newConfigs,
-            syncRequired: context.syncRequired + 1,
-          }
+          return updateSubscriptionTarget(context, event.subject)
         }),
       ],
     },
@@ -179,14 +174,10 @@ export const subjectManagerLogic = setup({
     subject_disconnecting: {
       entry: [
         // dont close the connection here, it will be closed by the nats connection machine
-        assign({
+        assign(({ context }) => ({
+          ...detachSubscriptions(context),
           cachedConnection: null,
-          subscriptions: new Map<string, Subscription>(),
-          syncRequired: ({ context }) =>
-            context.subscriptionConfigs.size > 0
-              ? Math.max(context.syncRequired, 1)
-              : context.syncRequired,
-        }),
+        })),
         sendParent({ type: 'SUBJECT.DISCONNECTED' }),
       ],
       always: {
@@ -283,26 +274,31 @@ export const subjectManagerLogic = setup({
         },
       },
       entry: [
-        ({ context }) => {
-          // either going to be 0 or 1 (if there were multiple syncs pending)
-          context.syncRequired = Math.min(context.syncRequired - 1, 1)
-        },
+        assign(() => beginSubscriptionSync()),
         assign(({ context }) => {
-          const consolidatedContext = subjectConsolidateState({
-            input: {
-              connection: context.cachedConnection!,
-              currentSubscriptions: context.subscriptions,
-              targetSubscriptions: context.subscriptionConfigs,
-            },
-          })
-          return {
-            ...consolidatedContext,
+          try {
+            return finishSubscriptionSync(
+              context,
+              subjectConsolidateState({
+                input: {
+                  connection: context.cachedConnection,
+                  currentSubscriptions: context.subscriptions,
+                  targetSubscriptions: context.subscriptionConfigs,
+                },
+              }),
+            )
+          } catch (cause) {
+            return finishSubscriptionSync(context, {
+              subscriptions: context.subscriptions,
+              error: cause instanceof Error ? cause : new Error(String(cause)),
+            })
           }
         }),
       ],
-      always: {
-        target: 'subject_connected',
-      },
+      always: [
+        { target: 'subject_error', guard: ({ context }) => !!context.error },
+        { target: 'subject_connected' },
+      ],
     },
     subject_error: {
       on: {

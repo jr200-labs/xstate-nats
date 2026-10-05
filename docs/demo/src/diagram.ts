@@ -35,7 +35,6 @@ export function childDiagram(kind: 'subject' | 'kv', active: string): string {
   return `<svg viewBox="0 0 350 210" role="img" aria-label="${kind} child state: ${active}">
     <defs><marker id="child-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#78929a"/></marker></defs>
     ${edges
-      .filter(([, label]) => kind === 'kv' || label !== 'failed')
       .map(
         ([path, label, x, y]) =>
           `<path d="${path}" fill="none" stroke="#78929a" marker-end="url(#child-arrow)"/><text class="edge-label" x="${x}" y="${y}" ${x === 344 ? `transform="rotate(-90 ${x} ${y})"` : ''} text-anchor="middle">${label}</text>`,

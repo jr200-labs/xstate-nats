@@ -2,7 +2,7 @@
 title: Key-value
 ---
 
-KV operations need a connected NATS server with JetStream enabled. They are available in the demo's **Live WebSocket** mode. The browser sandbox does not emulate JetStream.
+KV operations need a connected NATS server with JetStream enabled. They are available in the demo's **Real NATS · your server** mode. The browser sandbox does not emulate JetStream.
 
 ## Create, store, and read
 

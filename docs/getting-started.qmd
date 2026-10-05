@@ -36,7 +36,7 @@ Install [nats-server](https://docs.nats.io/running-a-nats-service/introduction/i
 nats-server -c nats-server.conf
 ```
 
-This enables JetStream and an unencrypted development WebSocket listener on port `42222`. Preview the demo locally and select **Live WebSocket** with `ws://localhost:42222`. The config has verbose development logging; use your own TLS, origin policy, and authentication for a deployed broker. See [NATS WebSocket configuration](https://docs.nats.io/running-a-nats-service/configuration/websocket/websocket_conf).
+This enables JetStream and an unencrypted development WebSocket listener on port `42222`. Preview the demo locally and select **Real NATS · your server** with `ws://localhost:42222`. The config has verbose development logging; use your own TLS, origin policy, and authentication for a deployed broker. See [NATS WebSocket configuration](https://docs.nats.io/running-a-nats-service/configuration/websocket/websocket_conf).
 
 ## Close and recover
 

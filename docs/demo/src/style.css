@@ -189,26 +189,26 @@ h2 {
   min-width: 560px;
   max-height: 158px;
 }
-#diagram rect {
+:is(#diagram, #child-diagram) rect {
   fill: #f5f9f8;
   stroke: #b8cecc;
 }
-#diagram text {
+:is(#diagram, #child-diagram) text {
   font: 12px monospace;
   fill: #38555e;
 }
-#diagram .edge-label {
+:is(#diagram, #child-diagram) .edge-label {
   font-size: 9px;
   paint-order: stroke;
   stroke: white;
   stroke-width: 3px;
 }
-#diagram .active-node rect {
+:is(#diagram, #child-diagram) .active-node rect {
   fill: #dbf1ec;
   stroke: var(--accent);
   stroke-width: 2px;
 }
-#diagram .active-node text {
+:is(#diagram, #child-diagram) .active-node text {
   fill: #045f5a;
   font-weight: 700;
 }
@@ -228,6 +228,7 @@ h2 {
 }
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 3px;
 }
 .tabs button {
@@ -361,4 +362,34 @@ pre {
       fill 0.15s,
       stroke 0.15s;
   }
+}
+
+#child-diagram svg {
+  display: block;
+  width: 100%;
+  max-height: 195px;
+}
+#subject-state,
+#kv-state {
+  display: block;
+  font: 10px monospace;
+  margin-top: 3px;
+}
+#subscription-inventory {
+  padding: 8px;
+  background: #f1f7f5;
+  border-radius: 5px;
+}
+.recovery-steps {
+  padding-left: 20px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.recovery-steps li {
+  margin-bottom: 12px;
+}
+.recovery-steps button {
+  display: block;
+  margin-top: 5px;
 }

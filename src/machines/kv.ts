@@ -2,6 +2,13 @@ import { NatsConnection, QueuedIterator } from '@nats-io/nats-core'
 import { jetstream } from '@nats-io/jetstream'
 import { KvEntry, Kvm, KvOptions, KvStatus, KvWatchEntry } from '@nats-io/kv'
 import { assign, sendParent, setup } from 'xstate'
+import {
+  beginSubscriptionSync,
+  detachSubscriptions,
+  finishSubscriptionSync,
+  hasPendingSync,
+  updateSubscriptionTarget,
+} from './subscriptions'
 import { KvSubscriptionKey, KvSubscriptionConfig, kvConsolidateState } from '../actions/kv'
 import {
   byteLength,
@@ -84,9 +91,7 @@ export const kvManagerLogic = setup({
     kvConsolidateState: kvConsolidateState,
   },
   guards: {
-    hasPendingSync: ({ context }) => {
-      return context.syncRequired > 0
-    },
+    hasPendingSync,
   },
 }).createMachine({
   /** @xstate-layout N4IgpgJg5mDOIC5QAoC2BDAxgCwJYDswBKAOlgFcAjAKzEwBcB9XCAGzAGIBlAVQCEAUgFEAwgBVGASQByksZICCAGUlchAbQAMAXUSgADgHtYuerkP49IAB6IATJs0kAnAFYAzAEY7rgDQgAT3tXTxJNAA53KOiYrwBfOP80LDxCUgoaOiYCU1x0VlwTfCgOa1h6dHowEnQAMyqAJ2RXRyIOZJwCYjIqWgZmfFz8woIoLV0kECMTMwsrWwQANk0AFhJPNy8ffyCEHzsSV0jY2M8EpIxOtJ7M-swLQgZIbn5hcUZePi4RACVJPg0Ois01yc0mC08jnCJAA7O4Vu4YX5AvYVjDDnZ4YjXOcQB1Ut0Mn0mPd8I8qhAXoJRBIeNJPt8-gDxsDjKDLODEEiDu5FjDPOEkTtEJ4Yc5cfiuulellGKTyc9Pm8JCIlEIFD8PvxGf9ARMDGzZhzQAs4a4SHY7ItXIttiiEN5oTjcfhDBA4FZJWlWTNzMabIgALSLYUIYMSy4E6W3bJsMA+9nzRArOyhy3QiInU4RlJSm7EgZDApFKAJo1JhArTzmzTV23I3bpsLHLNRM6JPGRvNE2XyrKQMt+iswpEkRaChv2eGHHNXQkyu4WWCGAoQSpgRjldeDsEmkWY0IrFYebyTvZomcdr3zmOMMANBqGBo7-0LFaLC0CoX26KHFuthIEiAA */
@@ -139,25 +144,17 @@ export const kvManagerLogic = setup({
                 downloadBytes: bytes,
               }),
           }
-          const newConfigs = new Map(context.subscriptionConfigs)
-          const newKvKey = KvSubscriptionKey.key(config.bucket, config.key)
-          newConfigs.set(newKvKey, config)
-          return {
-            subscriptionConfigs: newConfigs,
-            syncRequired: context.syncRequired + 1,
-          }
+          return updateSubscriptionTarget(
+            context,
+            KvSubscriptionKey.key(config.bucket, config.key),
+            config,
+          )
         }),
       ],
     },
     'KV.UNSUBSCRIBE': {
       actions: assign(({ context, event }) => {
-        const newConfigs = new Map(context.subscriptionConfigs)
-        const newKvKey = KvSubscriptionKey.key(event.bucket, event.key)
-        newConfigs.delete(newKvKey)
-        return {
-          subscriptionConfigs: newConfigs,
-          syncRequired: context.syncRequired + 1,
-        }
+        return updateSubscriptionTarget(context, KvSubscriptionKey.key(event.bucket, event.key))
       }),
     },
     'KV.UNSUBSCRIBE_ALL': {
@@ -185,15 +182,11 @@ export const kvManagerLogic = setup({
     kv_disconnecting: {
       entry: [
         // dont close the connection here, it will be closed by the nats connection machine
-        assign({
+        assign(({ context }) => ({
+          ...detachSubscriptions(context),
           cachedConnection: null,
           cachedKvm: null,
-          subscriptions: new Map<string, QueuedIterator<KvWatchEntry>>(),
-          syncRequired: ({ context }) =>
-            context.subscriptionConfigs.size > 0
-              ? Math.max(context.syncRequired, 1)
-              : context.syncRequired,
-        }),
+        })),
         sendParent({ type: 'KV.DISCONNECTED' }),
       ],
       always: {
@@ -358,12 +351,7 @@ export const kvManagerLogic = setup({
           target: 'kv_disconnecting',
         },
       },
-      entry: [
-        ({ context }) => {
-          // either going to be 0 or 1 (if there were multiple syncs pending)
-          context.syncRequired = Math.min(context.syncRequired - 1, 1)
-        },
-      ],
+      entry: [assign(() => beginSubscriptionSync())],
       invoke: {
         id: 'single-instance-sync',
         src: 'kvConsolidateState',
@@ -373,27 +361,25 @@ export const kvManagerLogic = setup({
           currentState: context.subscriptions,
           targetState: context.subscriptionConfigs,
         }),
-        onDone: {
-          target: 'kv_connected',
-          actions: [
-            () => {
-              // console.log('kvConsolidateState onDone')
-            },
-            assign(({ event }) => ({
-              subscriptions: event.output.subscriptions,
-            })),
-          ],
-        },
+        onDone: [
+          {
+            target: 'kv_error',
+            guard: ({ event }) => !!event.output.error,
+            actions: assign(({ context, event }) => finishSubscriptionSync(context, event.output)),
+          },
+          {
+            target: 'kv_connected',
+            actions: assign(({ context, event }) => finishSubscriptionSync(context, event.output)),
+          },
+        ],
         onError: {
           target: 'kv_error',
-          actions: [
-            assign({
-              error: ({ event }) => {
-                console.error('kvConsolidateState onError', event.error)
-                return event.error as Error
-              },
+          actions: assign(({ context, event }) =>
+            finishSubscriptionSync(context, {
+              subscriptions: context.subscriptions,
+              error: event.error instanceof Error ? event.error : new Error(String(event.error)),
             }),
-          ],
+          ),
         },
       },
     },

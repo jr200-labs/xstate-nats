@@ -17,6 +17,7 @@ import {
   withSpan,
 } from '../telemetry'
 import { byteLength } from '../traffic'
+import { reconcileSubscriptions } from './subscriptions'
 
 export type SubjectSubscriptionConfig = {
   subject: string
@@ -60,77 +61,55 @@ export const subjectConsolidateState = ({
     throw new Error('NATS connection is not available')
   }
 
-  const syncedSubscriptions = new Map(currentSubscriptions)
+  return reconcileSubscriptions(currentSubscriptions, targetSubscriptions, {
+    dispose: (subscription) => subscription.unsubscribe(),
+    create: (subject, subscriptionConfig) => {
+      // Short span around the synchronous subscribe() call. The iterator
+      // below is long-lived; we don't span its whole lifetime (indefinite
+      // spans are anti-pattern in most tracing backends).
+      const sub = withSpan('xstate.nats.subscribe', 'xstate.nats.error', { subject }, () =>
+        connection.subscribe(subject, subscriptionConfig.opts),
+      ) as Subscription
 
-  // Unsubscribe from subjects that are in currentSubscriptions but not in targetSubscriptions
-  for (const [subject, subscription] of currentSubscriptions) {
-    if (!targetSubscriptions.has(subject)) {
-      try {
-        syncedSubscriptions.delete(subject)
-        subscription.unsubscribe()
-      } catch (error) {
-        console.error(`Error unsubscribing from subject "${subject}"`, error)
-      }
-    }
-  }
-
-  // Subscribe to new subjects that are in targetSubscriptions but not in currentSubscriptions
-  for (const [subject, subscriptionConfig] of targetSubscriptions) {
-    if (!currentSubscriptions.has(subject)) {
-      try {
-        // Short span around the synchronous subscribe() call. The iterator
-        // below is long-lived; we don't span its whole lifetime (indefinite
-        // spans are anti-pattern in most tracing backends).
-        const sub = withSpan('xstate.nats.subscribe', 'xstate.nats.error', { subject }, () =>
-          connection.subscribe(subject, subscriptionConfig.opts),
-        ) as Subscription
-
-        // Message loop: each received message starts its own span, parented
-        // on the traceparent extracted from the message headers (OTel
-        // messaging semconv). If the publisher did not propagate context the
-        // extracted context falls back to the ambient one, so the span
-        // simply becomes a root.
-        ;(async () => {
-          try {
-            for await (const msg of sub) {
-              const parentCtx = extractContextFromHeaders((msg as Msg).headers)
-              const payloadBytes = (msg as Msg).data?.length ?? 0
-              await withSpan(
-                'xstate.nats.message',
-                'xstate.nats.error',
-                {
-                  subject,
-                  'payload.bytes': payloadBytes,
-                },
-                (span) => {
-                  try {
-                    subscriptionConfig.onDownloadBytes?.(payloadBytes)
-                    subscriptionConfig?.callback(parseNatsResult(msg))
-                  } catch (callbackError) {
-                    // Record on span AND preserve the existing console.error
-                    // so consumers without OTel still see the failure.
-                    recordError(span, 'xstate.nats.error', callbackError)
-                    console.error(`Callback error for subject "${subject}"`, callbackError)
-                  }
-                },
-                parentCtx,
-              )
-            }
-          } catch (iteratorError) {
-            console.error(`Iterator error for subject "${subject}"`, iteratorError)
+      // Message loop: each received message starts its own span, parented
+      // on the traceparent extracted from the message headers (OTel
+      // messaging semconv). If the publisher did not propagate context the
+      // extracted context falls back to the ambient one, so the span
+      // simply becomes a root.
+      ;(async () => {
+        try {
+          for await (const msg of sub) {
+            const parentCtx = extractContextFromHeaders((msg as Msg).headers)
+            const payloadBytes = (msg as Msg).data?.length ?? 0
+            await withSpan(
+              'xstate.nats.message',
+              'xstate.nats.error',
+              {
+                subject,
+                'payload.bytes': payloadBytes,
+              },
+              (span) => {
+                try {
+                  subscriptionConfig.onDownloadBytes?.(payloadBytes)
+                  subscriptionConfig?.callback(parseNatsResult(msg))
+                } catch (callbackError) {
+                  // Record on span AND preserve the existing console.error
+                  // so consumers without OTel still see the failure.
+                  recordError(span, 'xstate.nats.error', callbackError)
+                  console.error(`Callback error for subject "${subject}"`, callbackError)
+                }
+              },
+              parentCtx,
+            )
           }
-        })()
+        } catch (iteratorError) {
+          console.error(`Iterator error for subject "${subject}"`, iteratorError)
+        }
+      })()
 
-        syncedSubscriptions.set(subject, sub)
-      } catch (error) {
-        console.error(`Error subscribing to subject "${subject}"`, error)
-      }
-    }
-  }
-
-  return {
-    subscriptions: syncedSubscriptions,
-  }
+      return sub
+    },
+  })
 }
 
 export const subjectRequest = ({

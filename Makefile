@@ -1,6 +1,6 @@
 VERSION := $(shell node -p "require('./package.json').version")
 
-.PHONY: all install update check test test-watch build bump release clean publish
+.PHONY: all install update check test test-watch build demo docs docs-preview bump release clean publish
 
 all: check
 
@@ -31,6 +31,15 @@ test-watch:
 
 build:
 	pnpm build
+
+demo:
+	pnpm demo:dev
+
+docs:
+	quarto render docs
+
+docs-preview:
+	quarto preview docs
 
 bump:
 	@if [ -z "$(PART)" ]; then echo "Usage: make bump PART=major|minor|patch"; exit 1; fi

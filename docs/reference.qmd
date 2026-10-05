@@ -1,0 +1,42 @@
+---
+title: Reference
+---
+
+## Root lifecycle
+
+| State | Meaning |
+|---|---|
+| `not_configured` | Waiting for `CONFIGURE` |
+| `configured` | Configuration accepted; `CONNECT` starts a connection |
+| `connecting` | Connection actor is running |
+| `initialise_managers` | Waiting for subject and KV readiness |
+| `connected` | Messaging events are forwarded to child managers |
+| `closing` | Draining/closing and detaching managers |
+| `closed` | Connection ended; current config can reconnect |
+| `error` | Connection/close failed; inspect `context.error` |
+
+Use `snapshot.matches(...)` to check state. `CONFIGURE` during an active connection closes it and reconnects with the new configuration; during an in-flight connect it restarts that connect. `CONNECT` during closing queues a reconnect. A final `NATS_CONNECTION.CLOSE` clears the connection and manager readiness and enters `closed`.
+
+NATS's own reconnect settings live in `config.opts`. The root's `maxRetries` field does not implement an automatic XState retry loop; failed connection attempts enter `error` and increment the retry count. Send `CONNECT` to retry from that state.
+
+## Event families
+
+| Family | Events |
+|---|---|
+| Connection | `CONFIGURE`, `CONNECT`, `DISCONNECT`, `RESET`, `CREDENTIALS.RELOAD` |
+| Subjects | `SUBJECT.SUBSCRIBE`, `SUBJECT.UNSUBSCRIBE`, `SUBJECT.UNSUBSCRIBE_ALL`, `SUBJECT.PUBLISH`, `SUBJECT.REQUEST` |
+| Buckets | `KV.BUCKET_CREATE`, `KV.BUCKET_DELETE`, `KV.BUCKET_LIST` |
+| Values | `KV.PUT`, `KV.GET`, `KV.DELETE`, `KV.SUBSCRIBE`, `KV.UNSUBSCRIBE`, `KV.UNSUBSCRIBE_ALL` |
+| Traffic | `METRICS.RESET_UPLOAD`, `METRICS.RESET_DOWNLOAD`, `METRICS.RESET_ALL` |
+
+Traffic reset events optionally select a metric source. Subject and KV child snapshots expose `trafficMetrics`; counters measure application payload bytes rather than total protocol wire traffic.
+
+## Public exports
+
+The package exports `natsMachine`, `subjectManagerLogic`, `kvManagerLogic`, `credentialMachine`, `getCredentials`, `KvSubscriptionKey`, `parseNatsResult`, credential and event/context types, and traffic metric helpers. See `src/index.ts` for the complete typed export surface.
+
+## Error behavior
+
+Connection failures are root errors. Subject request/publish failures use their result callbacks. KV operation failures use `onResult`; Subscription and watch setup/removal failures enter `subject_error` or `kv_error`. Inspect that child's `context.error` (an aggregate with per-target causes). Successful handles remain active, failed removals retain their handles, and desired subscriptions remain available for retry. After fixing the underlying problem, disconnect and reconnect to restore subscriptions. Direct child users can send `SUBJECT.CONNECT` or `KV.CONNECT` to retry with their connection. A root `connected` state does not mean every operation succeeded.
+
+The demo handles expected errors in its feedback area and Output panel. Its diagram intentionally shows the main lifecycle paths rather than every wildcard, reconfigure, and internal status transition.

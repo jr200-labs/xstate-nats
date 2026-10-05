@@ -361,7 +361,15 @@ appear as children of the originating publisher/requester span.
 
 ## Examples
 
-Check out the [React example](./examples/react-test/) for a complete working implementation.
+Read the [documentation](https://jr200-labs.github.io/xstate-nats/) and try the
+[interactive browser demo](https://jr200-labs.github.io/xstate-nats/demo.html).
+The default sandbox runs in your browser; live mode uses your own NATS WebSocket broker.
+The canonical demo source lives in [docs/demo](./docs/demo/).
+
+```bash
+pnpm demo:dev       # browser playground at localhost:3001
+quarto preview docs # documentation and embedded demo
+```
 
 ## Development
 

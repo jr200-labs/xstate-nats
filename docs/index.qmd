@@ -1,0 +1,22 @@
+---
+title: XState actors for NATS
+---
+
+`@jr200-labs/xstate-nats` coordinates a NATS WebSocket connection, subject subscriptions, request/reply, key-value operations, and short-lived credentials using XState v5.
+
+```bash
+pnpm add @jr200-labs/xstate-nats xstate @opentelemetry/api
+```
+
+Start with [the browser demo](demo.qmd): configure a connection, subscribe, publish a message, and watch the active state. Its default sandbox needs no broker. Live mode connects directly from your browser to your own NATS WebSocket endpoint.
+
+| Task | Guide |
+|---|---|
+| Create an actor and connect | [Getting started](getting-started.qmd) |
+| Subscribe, publish, and request a reply | [Subjects](subjects.qmd) |
+| Create a bucket, store values, and watch keys | [Key-value](key-value.qmd) |
+| Load and refresh authentication | [Credentials](credentials.qmd) |
+| Understand events, states, and errors | [Reference](reference.qmd) |
+| Inspect spans, metrics, and lifecycle logs | [Observability](observability.qmd) |
+
+NATS still requires a server for real messaging. The hosted documentation and demo UI are static files; GitHub Pages does not host a broker. The sandbox adapter belongs only to the demo and is not shipped as part of the library.

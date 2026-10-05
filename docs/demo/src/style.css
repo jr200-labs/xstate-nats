@@ -1,0 +1,395 @@
+:root {
+  font-family: 'Trebuchet MS', sans-serif;
+  color: #17333d;
+  background: #f1f5f4;
+  font-synthesis: none;
+  --accent: #087b79;
+  --line: #d4e0df;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+button {
+  border: 1px solid #b8cece;
+  border-radius: 6px;
+  background: white;
+  color: #17333d;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: #e9f5f2;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+button.primary:hover:not(:disabled) {
+  background: #056260;
+}
+button.quiet {
+  color: #56717a;
+  background: transparent;
+  margin-left: auto;
+  font-weight: 400;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #68b9b4;
+  outline-offset: 2px;
+}
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #c5d7d6;
+  border-radius: 6px;
+  background: #fcfefd;
+  padding: 7px 9px;
+  color: #17333d;
+  font-size: 13px;
+}
+label {
+  display: grid;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+[hidden] {
+  display: none !important;
+}
+.playground {
+  padding: 18px 22px;
+  max-width: 1500px;
+  margin: auto;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(200px, 1fr);
+  gap: 12px;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.eyebrow {
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: #50757a;
+}
+h1 {
+  font:
+    26px Georgia,
+    serif;
+  margin: 4px 0 0;
+  letter-spacing: -0.04em;
+}
+h2 {
+  font-size: 13px;
+  margin: 0;
+}
+.status {
+  font: 12px monospace;
+  border: 1px solid #ccd9d8;
+  border-radius: 20px;
+  padding: 7px 13px;
+  background: white;
+}
+.status.connected {
+  color: #075f57;
+  border-color: #93c7b9;
+  background: #ddf4e9;
+}
+.card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.connection {
+  padding: 12px 15px;
+  display: flex;
+  gap: 14px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.connection > label {
+  width: 165px;
+}
+#live-settings {
+  display: flex;
+  flex: 1;
+  gap: 10px;
+}
+#live-settings label:first-child {
+  flex: 2;
+}
+#live-settings label:last-child {
+  flex: 1;
+}
+.buttons {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.note {
+  font-size: 11px;
+  color: #547079;
+  margin: 0;
+  font-weight: 400;
+}
+.connection .note {
+  width: 100%;
+}
+.diagram {
+  padding: 0 15px;
+}
+.diagram summary {
+  padding: 9px 0;
+}
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.section-heading > span {
+  font-size: 10px;
+  color: #607c83;
+}
+#diagram {
+  max-height: 160px;
+  overflow-x: auto;
+}
+#diagram svg {
+  display: block;
+  width: 100%;
+  min-width: 560px;
+  max-height: 158px;
+}
+:is(#diagram, #child-diagram) rect {
+  fill: #f5f9f8;
+  stroke: #b8cecc;
+}
+:is(#diagram, #child-diagram) text {
+  font: 12px monospace;
+  fill: #38555e;
+}
+:is(#diagram, #child-diagram) .edge-label {
+  font-size: 9px;
+  paint-order: stroke;
+  stroke: white;
+  stroke-width: 3px;
+}
+:is(#diagram, #child-diagram) .active-node rect {
+  fill: #dbf1ec;
+  stroke: var(--accent);
+  stroke-width: 2px;
+}
+:is(#diagram, #child-diagram) .active-node text {
+  fill: #045f5a;
+  font-weight: 700;
+}
+.workbench {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.5fr) minmax(230px, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+.editor {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+}
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.tabs button {
+  border: none;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 400;
+}
+.tabs button[aria-pressed='true'] {
+  background: #e4f2ee;
+  color: #076861;
+  font-weight: 700;
+}
+.operation-panel {
+  display: grid;
+  gap: 8px;
+}
+.subscription-section,
+.publish-section {
+  display: grid;
+  gap: 7px;
+}
+.subscription-section {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 3px;
+}
+.action-row {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+.action-row label {
+  flex: 1;
+  min-width: 120px;
+}
+.transport-note {
+  margin: 0;
+  width: 100%;
+  font-size: 12px;
+  color: #38555e;
+  line-height: 1.5;
+}
+.field-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+textarea {
+  resize: vertical;
+  height: 70px;
+  min-height: 65px;
+  font: 13px/1.6 monospace;
+}
+#feedback {
+  font-size: 11px;
+  margin: 0;
+  min-height: 14px;
+  color: #087565;
+}
+#feedback.error {
+  color: #a03e39;
+}
+.details {
+  padding: 0 14px;
+  overflow: auto;
+  min-height: 0;
+}
+details {
+  border-bottom: 1px solid #e4ece9;
+}
+details:last-child {
+  border-bottom: none;
+}
+summary {
+  cursor: pointer;
+  padding: 13px 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+summary span {
+  float: right;
+  color: #6b8287;
+  font-size: 10px;
+  font-weight: 400;
+}
+.log-entry {
+  padding: 9px 0;
+  border-top: 1px solid #edf2f0;
+  font-size: 11px;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 11px/1.5 monospace;
+  margin: 5px 0 8px;
+  color: #496570;
+}
+.empty {
+  font-size: 12px;
+  color: #6b8287;
+  padding: 10px 0;
+}
+@media (max-width: 800px) {
+  .playground {
+    padding: 12px;
+    height: auto;
+    min-height: 100dvh;
+    grid-template-rows: auto auto auto auto;
+  }
+  .workbench {
+    grid-template-columns: 1fr;
+  }
+  .editor {
+    min-height: 330px;
+  }
+  .details {
+    max-height: 300px;
+  }
+  .action-row {
+    flex-wrap: wrap;
+  }
+  #live-settings {
+    width: 100%;
+    flex-basis: 100%;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .active-node rect {
+    transition:
+      fill 0.15s,
+      stroke 0.15s;
+  }
+}
+
+#child-diagram svg {
+  display: block;
+  width: 100%;
+  max-height: 195px;
+}
+#subject-state,
+#kv-state {
+  display: block;
+  font: 10px monospace;
+  margin-top: 3px;
+}
+#subscription-inventory {
+  padding: 8px;
+  background: #f1f7f5;
+  border-radius: 5px;
+}
+.recovery-steps {
+  padding-left: 20px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.recovery-steps li {
+  margin-bottom: 12px;
+}
+.recovery-steps button {
+  display: block;
+  margin-top: 5px;
+}

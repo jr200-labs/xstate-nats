@@ -16,6 +16,7 @@ const mockKvStore = {
   put: vi.fn(),
   delete: vi.fn(),
   keys: vi.fn(),
+  watch: vi.fn(),
 }
 
 const mockKvmInstance = {
@@ -100,6 +101,63 @@ describe('kvManagerLogic', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('enters kv_error on watch setup failure and retries retained targets on CONNECT', async () => {
+    const parent = createActor(createParentMachine())
+    const connection = createMockConnection()
+    const failure = new Error('watch rejected')
+    const watcher = {
+      stop: vi.fn(),
+      async *[Symbol.asyncIterator]() {},
+    }
+    mockKvmInstance.open.mockResolvedValue(mockKvStore)
+    mockKvStore.watch.mockRejectedValueOnce(failure).mockResolvedValue(watcher)
+    parent.start()
+    try {
+      parent.send({ type: 'KV.CONNECT', connection })
+      parent.send({ type: 'KV.SUBSCRIBE', config: { bucket: 'b', key: 'k', callback: vi.fn() } })
+      const child = parent.getSnapshot().children.kv!
+      await vi.waitFor(() => expect(child.getSnapshot().value).toBe('kv_error'))
+      const failed = child.getSnapshot().context
+      expect(failed.error.errors[0].cause).toBe(failure)
+      expect(failed.subscriptionConfigs.has('Pair(b, k)')).toBe(true)
+      expect(failed.subscriptions.size).toBe(0)
+      expect(failed.syncRequired).toBe(1)
+      parent.send({ type: 'KV.CONNECT', connection })
+      await vi.waitFor(() => expect(child.getSnapshot().value).toBe('kv_connected'))
+      expect(mockKvStore.watch).toHaveBeenCalledTimes(2)
+      expect(child.getSnapshot().context.error).toBeUndefined()
+      expect(child.getSnapshot().context.subscriptions.get('Pair(b, k)')).toBe(watcher)
+    } finally {
+      parent.stop()
+    }
+  })
+
+  it('reconciles target changes received while a KV watch is being created', async () => {
+    const parent = createActor(createParentMachine())
+    let resolveWatch!: (watcher: unknown) => void
+    const pending = new Promise((resolve) => {
+      resolveWatch = resolve
+    })
+    const watcher = { stop: vi.fn(), async *[Symbol.asyncIterator]() {} }
+    mockKvmInstance.open.mockResolvedValue(mockKvStore)
+    mockKvStore.watch.mockClear().mockReturnValueOnce(pending)
+    parent.start()
+    try {
+      parent.send({ type: 'KV.CONNECT', connection: createMockConnection() })
+      parent.send({ type: 'KV.SUBSCRIBE', config: { bucket: 'b', key: 'k', callback: vi.fn() } })
+      await vi.waitFor(() => expect(mockKvStore.watch).toHaveBeenCalledTimes(1))
+      parent.send({ type: 'KV.UNSUBSCRIBE', bucket: 'b', key: 'k' })
+      resolveWatch(watcher)
+      const child = parent.getSnapshot().children.kv!
+      await vi.waitFor(() => expect(child.getSnapshot().value).toBe('kv_connected'))
+      expect(watcher.stop).toHaveBeenCalledOnce()
+      expect(child.getSnapshot().context.subscriptions.size).toBe(0)
+      expect(child.getSnapshot().context.syncRequired).toBe(0)
+    } finally {
+      parent.stop()
+    }
   })
 
   it('should start in kv_idle state', () => {

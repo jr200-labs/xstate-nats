@@ -1,0 +1,53 @@
+name: Documentation
+on:
+  pull_request:
+  push:
+    branches: [master]
+    paths:
+      - 'docs/**'
+      - 'src/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig.json'
+      - '.github/workflows/bespoke_docs.yaml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - uses: quarto-dev/quarto-actions/setup@v2.2.0
+      - run: quarto render docs
+      - run: npx --yes "$(node -p 'require("./package.json").packageManager')" run demo:test
+      - name: Start disposable NATS broker for recovery checks
+        run: |
+          docker run -d --name demo-nats -p 127.0.0.1:42222:42222 \
+            -v "$PWD/nats-server.conf:/etc/nats/nats-server.conf:ro" \
+            nats:2.14.7-alpine -c /etc/nats/nats-server.conf -sd /tmp/nats
+      - name: Verify live KV recovery and resubscription
+        env:
+          DEMO_NATS_WS: ws://127.0.0.1:42222
+        run: npx --yes "$(node -p 'require("./package.json").packageManager')" run demo:test
+      - name: Stop test broker
+        if: always()
+        run: docker rm -f demo-nats || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: documentation-preview
+          path: docs/_site
+  publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+      pages: write
+    uses: jr200-labs/github-action-templates/.github/workflows/build_quarto_docs.yaml@master
+    with:
+      checkout-ref: ${{ github.sha }}
+      site-path: docs
+      runner: ubuntu-latest

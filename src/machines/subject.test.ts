@@ -72,9 +72,36 @@ function createParentMachine() {
 }
 
 describe('subjectManagerLogic', () => {
-  beforeEach(() => {
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+  it('enters subject_error on setup failure and retries retained targets on CONNECT', () => {
+    const parent = createActor(createParentMachine())
+    const connection = createMockConnection()
+    const failure = new Error('subscription rejected')
+    connection.subscribe.mockImplementationOnce(() => {
+      throw failure
+    })
+    parent.start()
+    try {
+      parent.send({ type: 'SUBJECT.CONNECT', connection })
+      parent.send({
+        type: 'SUBJECT.SUBSCRIBE',
+        config: { subject: 'failed.sub', callback: vi.fn() },
+      })
+      const child = parent.getSnapshot().children.subject!
+      const failed = child.getSnapshot()
+      expect(failed.value).toBe('subject_error')
+      expect(failed.context.error).toBeInstanceOf(AggregateError)
+      expect(failed.context.error.errors[0].cause).toBe(failure)
+      expect(failed.context.subscriptionConfigs.has('failed.sub')).toBe(true)
+      expect(failed.context.subscriptions.size).toBe(0)
+      expect(failed.context.syncRequired).toBe(1)
+      parent.send({ type: 'SUBJECT.CONNECT', connection })
+      expect(connection.subscribe).toHaveBeenCalledTimes(2)
+      expect(child.getSnapshot().value).toBe('subject_connected')
+      expect(child.getSnapshot().context.error).toBeUndefined()
+      expect(child.getSnapshot().context.subscriptions.has('failed.sub')).toBe(true)
+    } finally {
+      parent.stop()
+    }
   })
 
   it('should start in subject_idle state', () => {

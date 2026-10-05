@@ -1,0 +1,48 @@
+---
+title: Live demo
+page-layout: full
+body-classes: demo-page
+toc: false
+---
+
+**No NATS server runs in this browser.** The default sandbox simulates messaging inside this tab. Real mode connects to a separate server that you provide. [Open full screen](demo-assets/index.html){target="_blank"}.
+
+```{=html}
+<iframe class="demo-frame" src="demo-assets/index.html" title="Interactive xstate-nats playground"></iframe>
+<details class="demo-help"><summary>Sandbox, live connections, and how to use the demo</summary>
+```
+
+**Browser sandbox** uses the library's real root and subject actors with a small in-memory connection adapter. Messages stay in this tab, and `demo.echo` returns a local echo reply. It is a learning environment, not a NATS server or a substitute for testing broker behavior. Reloading clears its data. JetStream/KV operations require live mode.
+
+**Real NATS · your server** uses the unmodified library connection actor. Enter your own `ws://` endpoint when previewing locally or a `wss://` endpoint from the hosted HTTPS site. An optional token is held only in this tab's memory. The broker must permit the browser's origin and the subjects you use. No public broker or credential is supplied.
+
+- Configure and connect. In **Publish / subscribe**, use **Receive messages** to subscribe, then **Send a message** to publish to the same subject. The subscription survives a disconnect/reconnect through the library's target subscription map.
+- In **Request / reply**, request `demo.echo` in sandbox mode for a reply; another subject produces a request failure.
+- **KV / watch** contains bucket creation/listing, key listing, get/put, and subscribe/unsubscribe controls. It needs Real NATS mode with JetStream enabled. Request/reply in real mode needs a responder.
+- **Child state machines** shows the subject and KV actor diagrams, their full current states, retained subscription targets, and active handles. Expand **Transition history** to see actual XState microsteps, including states too brief to catch on screen.
+- Open **Output** for callbacks and recent events, or **State** for sanitized actor details and traffic counters. Expand **Connection state diagram** to see the main lifecycle paths; the state badge is authoritative.
+
+## Try recovery
+
+1. Configure and connect. In **Publish / subscribe**, subscribe to a subject. For KV, select **Real NATS**, create a bucket in **KV / watch**, and subscribe to a key.
+2. Open **Recovery**, choose subject or KV, and select **Disconnect & reconnect**. The client connection closes; active handles disappear, while the target configurations are retained. The library rebuilds them on the next connection.
+3. Select **Send verification value**. The demo generates a unique value and only reports verified delivery when that value arrives through the restored subscription. Replayed historical KV entries cannot satisfy this check.
+4. Back in the subscription controls, unsubscribe and watch the target and active maps clear. Subscribe again to see the child machine sync a new handle. **Unsubscribe all** clears that manager's targets.
+
+This walkthrough deliberately reconnects the client; it does not stop a broker or emulate a network outage. To explore a real outage, stop/restart your own disposable development broker while viewing the inspector. NATS applies `maxReconnectAttempts`; a final close enters the root's `closed` state, from which **Connect** establishes a fresh connection and restores targets. Core subject messages missed while disconnected are not replayed.
+
+## Run the live recovery test
+
+With a disposable local broker running with the repository's `nats-server.conf`:
+
+```bash
+DEMO_NATS_WS=ws://127.0.0.1:42222 pnpm demo:test
+```
+
+This creates an isolated test bucket, verifies new KV delivery after reconnect, unsubscribes/resubscribes, and removes its bucket afterward. The documentation CI runs this against an ephemeral broker. Without the environment variable, the live test is skipped and browser sandbox tests still run.
+
+See [getting started](getting-started.qmd) to start a local WebSocket broker.
+
+```{=html}
+</details>
+```

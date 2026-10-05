@@ -1,0 +1,28 @@
+---
+title: Live demo
+page-layout: full
+body-classes: demo-page
+toc: false
+---
+
+Configure → Connect → Subscribe → Publish. The sandbox runs entirely in your browser. [Open full screen](demo-assets/index.html){target="_blank"}.
+
+```{=html}
+<iframe class="demo-frame" src="demo-assets/index.html" title="Interactive xstate-nats playground"></iframe>
+<details class="demo-help"><summary>Sandbox, live connections, and how to use the demo</summary>
+```
+
+**Browser sandbox** uses the library's real root and subject actors with a small in-memory connection adapter. Messages stay in this tab, and `demo.echo` returns a local echo reply. It is a learning environment, not a NATS server or a substitute for testing broker behavior. Reloading clears its data. JetStream/KV operations require live mode.
+
+**Live WebSocket** uses the unmodified library connection actor. Enter your own `ws://` endpoint when previewing locally or a `wss://` endpoint from the hosted HTTPS site. An optional token is held only in this tab's memory. The broker must permit the browser's origin and the subjects you use. No public broker or credential is supplied.
+
+- Configure and connect, then subscribe before publishing. The subscription survives a disconnect/reconnect through the library's target subscription map.
+- In sandbox mode, request `demo.echo` for a reply; another subject produces a request failure.
+- In live mode, requests need a responder. The KV controls need JetStream enabled.
+- Open **Output** for callbacks and recent events, or **State** for sanitized actor details and traffic counters. The compact diagram shows the main lifecycle paths; the state badge is authoritative.
+
+See [getting started](getting-started.qmd) to start a local WebSocket broker.
+
+```{=html}
+</details>
+```

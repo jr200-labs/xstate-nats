@@ -1,0 +1,31 @@
+---
+title: Observability
+---
+
+`@opentelemetry/api` is a peer dependency. Applications register their own tracer and meter providers; without a provider, the instrumentation is a no-op.
+
+Subject operations emit `xstate.nats.subscribe`, `xstate.nats.message`, `xstate.nats.publish`, and `xstate.nats.request` spans. NATS reconnect events emit `xstate.nats.reconnect`; KV watches emit `xstate.nats.kv.watch` and `xstate.nats.kv.entry`. Publish/request operations inject trace context into NATS headers; received messages extract it so traces can cross application boundaries.
+
+## Lifecycle diagnostics
+
+```ts
+config: {
+  opts: { servers: ['wss://your-nats.example'] },
+  maxRetries: 3,
+  diagnostics: { lifecycle: true },
+}
+```
+
+When enabled, root transitions emit sanitized `xstate.nats.lifecycle` spans and console breadcrumbs with state, event type, server URLs, retry count, auth type, and manager readiness. Raw protocol debugging is separate from lifecycle diagnostics.
+
+## Credential instrumentation
+
+Credential load/refresh spans are `xstate.nats.credentials.load` and `.refresh`. Metrics are:
+
+| Metric | Kind |
+|---|---|
+| `xstate.nats.credentials.operations` | Counter by operation/outcome |
+| `xstate.nats.credentials.operation.duration` | Duration histogram in milliseconds |
+| `xstate.nats.credentials.state.transitions` | Counter by state |
+
+Set `credentials.diagnostics: true` for sanitized credential state/operation breadcrumbs. Credential contents and provider error messages are excluded from credential instrumentation. The browser demo's State panel likewise summarizes state and counters without dumping auth configuration.

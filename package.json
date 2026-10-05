@@ -32,6 +32,11 @@
     "test:watch": "vitest",
     "prettier": "prettier --write \"**/*.{ts,mjs,js,json,md,yml,yaml}\"",
     "lint": "tsc --noEmit",
+    "demo:dev": "vite --config docs/demo/vite.config.ts",
+    "demo:build": "tsc -p docs/demo/tsconfig.json && vite build --config docs/demo/vite.config.ts",
+    "demo:test": "vitest run --config docs/demo/vitest.config.ts",
+    "docs:preview": "quarto preview docs",
+    "docs:build": "quarto render docs",
     "prepublishOnly": "pnpm build && pnpm test"
   },
   "keywords": [
@@ -63,6 +68,7 @@
     "syncpack": "^15.3.3",
     "typescript": "^7.0.2",
     "typescript-eslint": "^8.71.0",
+    "vite": "^8.3.2",
     "vitest": "^5.0.3"
   }
 }

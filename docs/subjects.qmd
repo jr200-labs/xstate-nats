@@ -1,0 +1,47 @@
+---
+title: Subjects
+---
+
+Send subject events to a connected `natsMachine` actor. Use encoded bytes for wire payloads; `parseNatsResult` parses incoming JSON and falls back to a string.
+
+## Subscribe and publish
+
+```ts
+const encode = (value: unknown) => new TextEncoder().encode(JSON.stringify(value))
+
+actor.send({
+  type: 'SUBJECT.SUBSCRIBE',
+  config: { subject: 'demo.events', callback: (data) => console.log(data) },
+})
+actor.send({
+  type: 'SUBJECT.PUBLISH',
+  subject: 'demo.events',
+  payload: encode({ message: 'hello' }),
+  onPublishResult: (result) => {
+    if (!result.ok) console.error(result.error)
+  },
+})
+```
+
+Subscriptions are keyed by subject; one target subscription is retained per subject. `SUBJECT.UNSUBSCRIBE` removes a subject, and `SUBJECT.UNSUBSCRIBE_ALL` clears the target set. Target configurations survive disconnect/reconnect so the subject manager can restore them on the new connection. Recreate the actor for a completely fresh demo session.
+
+A successful publish callback means the client accepted the publish call. It is not a broker persistence or application-processing acknowledgement.
+
+## Request a reply
+
+```ts
+actor.send({
+  type: 'SUBJECT.REQUEST',
+  subject: 'demo.echo',
+  payload: encode({ question: 'hello' }),
+  opts: { timeout: 1500 },
+  callback: (reply) => console.log('reply', reply),
+  onRequestResult: (result) => {
+    if (!result.ok) console.error('request failed', result.error)
+  },
+})
+```
+
+Real NATS needs a responder on the subject. The demo sandbox supplies a local responder only for `demo.echo`. A request failure is reported through `onRequestResult`; the reply callback runs on success. `requestHeaders` can asynchronously prepare additional headers before sending. When `opts.timeout` is provided, header preparation and the NATS request share that time budget.
+
+The root obtains current credential headers for each request when configured with a [credential adapter](credentials.qmd). User-provided `requestHeaders` are merged with those headers. Avoid logging authentication headers or placing credentials in the message body.

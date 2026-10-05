@@ -1,0 +1,45 @@
+---
+title: Key-value
+---
+
+KV operations need a connected NATS server with JetStream enabled. They are available in the demo's **Live WebSocket** mode. The browser sandbox does not emulate JetStream.
+
+## Create, store, and read
+
+```ts
+actor.send({
+  type: 'KV.BUCKET_CREATE', bucket: 'demo',
+  onResult: (result) => console.log(result),
+})
+// Wait for the create callback before writing.
+actor.send({
+  type: 'KV.PUT', bucket: 'demo', key: 'greeting',
+  value: new TextEncoder().encode(JSON.stringify({ message: 'hello' })),
+  onResult: (result) => console.log(result),
+})
+actor.send({
+  type: 'KV.GET', bucket: 'demo', key: 'greeting',
+  onResult: (result) => {
+    if (result && 'error' in result) console.error(result.error)
+    else console.log(parseNatsResult(result))
+  },
+})
+```
+
+Import `parseNatsResult` from the library. `KV.GET` returns a NATS KV entry, `null`, or an error wrapper; decode the entry with `parseNatsResult`. Create returns `{ ok: false }` if the bucket already exists. Always wait for callbacks when later operations depend on earlier ones.
+
+## Watch changes
+
+```ts
+actor.send({
+  type: 'KV.SUBSCRIBE',
+  config: {
+    bucket: 'demo', key: 'greeting',
+    callback: (entry) => console.log(entry),
+  },
+})
+```
+
+The callback receives `{ bucket, key, value }`, parsing JSON where possible. Watch configurations are keyed by bucket/key and survive reconnect. Current code suppresses `DEL` entries in the callback. `KV.UNSUBSCRIBE` removes one watch; `KV.UNSUBSCRIBE_ALL` clears all targets.
+
+`KV.BUCKET_LIST` without a bucket lists bucket status objects. With a bucket it lists keys. `KV.DELETE` deletes one key; `KV.BUCKET_DELETE` deletes the backing stream and should be used only when you intend to remove the whole bucket. Operation failures are returned through `onResult`; the root may still remain `connected`, so inspect the result rather than only the root state.

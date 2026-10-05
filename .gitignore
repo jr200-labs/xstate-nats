@@ -12,3 +12,8 @@ coverage/
 *.swp
 *.tgz
 .shared/
+
+# Generated documentation and browser demo
+docs/_site/
+docs/.quarto/
+docs/demo-assets/

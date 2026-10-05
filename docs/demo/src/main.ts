@@ -6,25 +6,51 @@ import './style.css'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <main class="playground">
-    <header><div><span class="eyebrow">XSTATE / NATS</span><h1>Messaging playground</h1></div><span id="status" class="status" role="status">not_configured</span></header>
+    <header><div><span class="eyebrow">XSTATE / NATS</span><h1>Browser messaging demo</h1></div><span id="status" class="status" role="status">not_configured</span></header>
     <section class="connection card" aria-label="Connection controls">
-      <label>Transport<select id="mode"><option value="sandbox">Browser sandbox</option><option value="live">Live WebSocket</option></select></label>
+      <label>Demo mode<select id="mode"><option value="sandbox">Sandbox · no server</option><option value="live">Real NATS · your server</option></select></label>
       <div id="live-settings" hidden><label>WebSocket URL<input id="server" value="ws://localhost:42222" type="url" /></label><label>Token (optional)<input id="token" type="password" autocomplete="off" /></label></div>
-      <div class="buttons"><button id="configure">Configure</button><button id="connect" class="primary">Connect</button><button id="disconnect">Disconnect</button><button id="reset">Reset</button></div>
-      <p id="transport-note" class="note">In-memory transport · real library actors · no broker or sign-in needed.</p>
+      <div class="buttons"><button id="configure">1. Configure</button><button id="connect" class="primary">2. Connect</button><button id="disconnect">Disconnect</button><button id="reset">Reset</button><button id="fail" class="quiet">Test connection failure</button></div>
+      <p id="transport-note" class="transport-note"><strong>No NATS server is running.</strong> This sandbox simulates messaging in this browser tab. Messages never leave the tab. Real mode needs a separate server.</p>
     </section>
-    <section class="diagram card"><div class="section-heading"><h2>Connection lifecycle</h2><span>Main paths · active state in teal</span></div><div id="diagram"></div></section>
+    <details class="diagram card"><summary>Connection state diagram <span>Main paths · active state in teal</span></summary><div id="diagram"></div></details>
     <div class="workbench">
       <section class="editor card">
-        <div class="section-heading"><h2>Send an event</h2><nav class="tabs" aria-label="Operation"><button id="subjects-tab" aria-pressed="true">Subjects</button><button id="kv-tab" aria-pressed="false">Key-value</button></nav></div>
-        <div id="subject-fields"><label>Subject<input id="subject" value="demo.events" /></label><div class="buttons"><button id="subscribe">Subscribe</button><button id="unsubscribe">Unsubscribe</button></div><label>Request subject<input id="request-subject" value="demo.echo" /></label></div>
-        <div id="kv-fields" hidden><p class="note">KV needs a live NATS connection with JetStream enabled.</p><div class="field-pair"><label>Bucket<input id="bucket" value="demo" /></label><label>Key<input id="key" value="greeting" /></label></div><div class="buttons"><button id="create-bucket">Create bucket</button><button id="get">Get</button><button id="watch">Watch</button></div></div>
-        <label class="payload-label">Message<textarea id="payload" spellcheck="false">{"message":"Hello from the browser"}</textarea></label>
-        <div class="buttons"><button id="publish" class="primary">Publish</button><button id="request">Request reply</button><button id="put" class="primary" hidden>Put value</button><button id="fail" class="quiet">Try connection failure</button></div>
+        <nav class="tabs" aria-label="Messaging operation"><button id="subjects-tab" aria-pressed="true">Publish / subscribe</button><button id="request-tab" aria-pressed="false">Request / reply</button><button id="kv-tab" aria-pressed="false">Key-value</button></nav>
+        <div id="subject-fields" class="operation-panel">
+          <section class="subscription-section" aria-labelledby="receive-heading">
+            <h2 id="receive-heading">Receive messages</h2>
+            <p class="note">Subscribe to listen on a subject. This does not send a message.</p>
+            <div class="action-row"><label>Listen on subject<input id="subject" value="demo.events" /></label><div class="buttons"><button id="subscribe">Subscribe</button><button id="unsubscribe">Unsubscribe</button></div></div>
+            <p id="subscription-status" class="note" role="status">No active subscriptions.</p>
+          </section>
+          <section class="publish-section" aria-labelledby="publish-heading">
+            <h2 id="publish-heading">Send a message</h2>
+            <p class="note">Publish to the same subject to see it arrive in Output.</p>
+            <label>Publish to subject<input id="publish-subject" value="demo.events" /></label>
+            <label>Message (JSON)<textarea id="publish-payload" spellcheck="false">{"message":"Hello from the browser"}</textarea></label>
+            <div class="buttons"><button id="publish" class="primary">Publish message</button></div>
+          </section>
+        </div>
+        <section id="request-fields" class="operation-panel" hidden aria-labelledby="request-heading">
+          <h2 id="request-heading">Send a request and wait for a reply</h2>
+          <p id="request-note" class="note">The sandbox replies on demo.echo. Other subjects have no responder.</p>
+          <label>Request subject<input id="request-subject" value="demo.echo" /></label>
+          <label>Request message (JSON)<textarea id="request-payload" spellcheck="false">{"question":"Hello from the browser"}</textarea></label>
+          <div class="buttons"><button id="request" class="primary">Send request</button></div>
+        </section>
+        <section id="kv-fields" class="operation-panel" hidden aria-labelledby="kv-heading">
+          <h2 id="kv-heading">Store and watch values</h2>
+          <p class="note">Requires a separate NATS server with JetStream. Unavailable in the sandbox.</p>
+          <div class="field-pair"><label>Bucket<input id="bucket" value="demo" /></label><label>Key<input id="key" value="greeting" /></label></div>
+          <div class="buttons"><button id="create-bucket">Create bucket</button><button id="get">Get value</button><button id="watch">Watch key</button></div>
+          <label>Value (JSON)<textarea id="kv-payload" spellcheck="false">{"message":"Hello from the browser"}</textarea></label>
+          <div class="buttons"><button id="put" class="primary">Put value</button></div>
+        </section>
         <p id="feedback" role="status">Start with Configure, then Connect.</p>
       </section>
       <aside class="details card">
-        <details open><summary>Output <span id="event-count">0 events</span></summary><div id="output" aria-live="polite" aria-relevant="additions"><p class="empty">Subscribe, then publish to see a message arrive.</p></div></details>
+        <details open><summary>Output <span id="event-count">0 events</span></summary><div id="output" aria-live="polite" aria-relevant="additions"><p class="empty">Incoming messages, replies, and operation results appear here.</p></div></details>
         <details><summary>State <span>actor details</span></summary><pre id="state"></pre></details>
       </aside>
     </div>
@@ -35,7 +61,9 @@ const element = <T extends HTMLElement = HTMLElement>(id: string) =>
 const value = (id: string) => element<HTMLInputElement>(id).value.trim()
 let actor: ActorRefFrom<typeof natsMachine>
 let failNext = false
-let kvTab = false
+let activeTab = 'subjects'
+let unsubscribeSubject: (() => void) | undefined
+let observedSubject: unknown
 let eventCount = 0
 let previousState = ''
 let unsubscribeActor: (() => void) | undefined
@@ -98,6 +126,24 @@ function refresh() {
   element<HTMLButtonElement>('fail').disabled = !sandbox || busy || connected
   const subject = snapshot.children.subject?.getSnapshot()
   const kv = snapshot.children.kv?.getSnapshot()
+  const activeSubjects = subject ? [...subject.context.subscriptions.keys()] : []
+  element('subscription-status').textContent =
+    connected && activeSubjects.length
+      ? `Listening on: ${activeSubjects.join(', ')}`
+      : !connected && subject?.context.subscriptionConfigs.size
+        ? 'Disconnected. Subscriptions will resume when you connect.'
+        : 'No active subscriptions.'
+  const subjectRef = snapshot.children.subject
+  if (subjectRef && observedSubject !== subjectRef) {
+    unsubscribeSubject?.()
+    observedSubject = subjectRef
+    const subscription = subjectRef.subscribe({ next: refresh })
+    unsubscribeSubject = () => subscription.unsubscribe()
+  }
+  element<HTMLButtonElement>('unsubscribe').disabled =
+    !connected || !subject?.context.subscriptionConfigs.has(value('subject'))
+  element<HTMLButtonElement>('subscribe').disabled =
+    !connected || !!subject?.context.subscriptionConfigs.has(value('subject'))
   element('state').textContent = JSON.stringify(
     {
       state: snapshot.value,
@@ -123,6 +169,9 @@ function refresh() {
 
 function startActor() {
   unsubscribeActor?.()
+  unsubscribeSubject?.()
+  observedSubject = undefined
+  previousState = ''
   if (actor) {
     void actor.getSnapshot().context.connection?.close()
     actor.stop()
@@ -159,8 +208,8 @@ function operate(fn: () => void) {
   }
 }
 
-function payload() {
-  const text = value('payload')
+function payload(id: string) {
+  const text = value(id)
   try {
     JSON.parse(text)
   } catch {
@@ -202,8 +251,11 @@ element('mode').onchange = () => {
   const live = value('mode') === 'live'
   element('live-settings').hidden = !live
   element('transport-note').textContent = live
-    ? 'Real NATS over WebSocket · use your own broker and permissions.'
-    : 'In-memory transport · real library actors · no broker or sign-in needed.'
+    ? 'Real mode connects this browser to a separate NATS server at your WebSocket URL. The demo does not start or host a server.'
+    : 'No NATS server is running. This sandbox simulates messaging in this browser tab. Messages never leave the tab. Real mode needs a separate server.'
+  element('request-note').textContent = live
+    ? 'Your NATS server needs a responder on this subject. The demo does not supply one in real mode.'
+    : 'The sandbox replies on demo.echo. Other subjects have no responder.'
   failNext = false
   startActor()
   feedback('Start with Configure, then Connect.')
@@ -225,8 +277,8 @@ element('publish').onclick = () =>
   operate(() =>
     send({
       type: 'SUBJECT.PUBLISH',
-      subject: value('subject'),
-      payload: payload(),
+      subject: value('publish-subject'),
+      payload: payload('publish-payload'),
       onPublishResult: (result) => {
         feedback(
           result.ok ? 'Published. Check Output for subscribed messages.' : result.error.message,
@@ -241,7 +293,7 @@ element('request').onclick = () =>
     send({
       type: 'SUBJECT.REQUEST',
       subject: value('request-subject'),
-      payload: payload(),
+      payload: payload('request-payload'),
       opts: { timeout: 1500 },
       callback: (data) => log('Reply received', data),
       onRequestResult: (result) => {
@@ -259,17 +311,17 @@ element('fail').onclick = () => {
   if (!actor.getSnapshot().context.natsConfig) element('configure').click()
   send({ type: 'CONNECT' })
 }
-function tab(kv: boolean) {
-  kvTab = kv
-  element('kv-fields').hidden = !kv
-  element('subject-fields').hidden = kv
-  for (const id of ['publish', 'request']) element(id).hidden = kv
-  element('put').hidden = !kv
-  element('subjects-tab').setAttribute('aria-pressed', String(!kv))
-  element('kv-tab').setAttribute('aria-pressed', String(kv))
+function tab(selected: string) {
+  activeTab = selected
+  for (const name of ['subjects', 'request', 'kv']) {
+    element(name === 'subjects' ? 'subject-fields' : `${name}-fields`).hidden = selected !== name
+    element(`${name}-tab`).setAttribute('aria-pressed', String(selected === name))
+  }
 }
-element('subjects-tab').onclick = () => tab(false)
-element('kv-tab').onclick = () => tab(true)
+element('subjects-tab').onclick = () => tab('subjects')
+element('request-tab').onclick = () => tab('request')
+element('kv-tab').onclick = () => tab('kv')
+element('subject').oninput = refresh
 function result(data: unknown) {
   if (data && typeof data === 'object' && 'error' in data && data.error) {
     const error = data.error instanceof Error ? data.error.message : String(data.error)
@@ -300,7 +352,7 @@ element('put').onclick = () =>
       type: 'KV.PUT',
       bucket: value('bucket'),
       key: value('key'),
-      value: payload(),
+      value: payload('kv-payload'),
       onResult: result,
     }),
   )
@@ -309,4 +361,4 @@ window.addEventListener('pagehide', () => {
   actor.stop()
 })
 startActor()
-tab(kvTab)
+tab(activeTab)

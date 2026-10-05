@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.25](https://github.com/jr200-labs/xstate-nats/compare/v0.9.24...v0.9.25) (2026-10-05)
+
+
+### Features
+
+* **docs:** add Quarto site and browser messaging demo ([#138](https://github.com/jr200-labs/xstate-nats/issues/138)) ([420582d](https://github.com/jr200-labs/xstate-nats/commit/420582de8a6b732cba099ec3c4023bd475e20648))
+
 ## [0.9.24](https://github.com/jr200-labs/xstate-nats/compare/v0.9.23...v0.9.24) (2026-10-05)
 
 

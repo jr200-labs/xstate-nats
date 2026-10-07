@@ -1,20 +1,16 @@
 # GENERATED/SHARED WORKFLOW: copied into consuming repos by sync-shared.
 # Do not edit in consuming repos; change jr200-labs/github-action-templates and sync.
-name: ci-node
+name: lint-workflow-runners
 
 on:
   pull_request:
   workflow_dispatch:
 
-# pull-requests: write is required by the size-limit job in
-# ci_npmjs.yaml — it posts a comment on the PR. Only top-level
-# permissions cascade into the reusable.
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
-  ci:
-    uses: jr200-labs/github-action-templates/.github/workflows/ci_npmjs.yaml@master
+  lint-workflow-runners:
+    uses: jr200-labs/github-action-templates/.github/workflows/lint_workflow_runners.yaml@master
     with:
       runner: ${{ fromJSON(vars.RUNNER_PROFILES)[vars.RUNNER_PROFILE].default }}

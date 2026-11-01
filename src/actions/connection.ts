@@ -174,6 +174,15 @@ export const parseNatsResult = (msg: Msg | KvEntry | null | Error) => {
     return msg
   }
 
+  // A binary response must bypass both JSON and lossy UTF-8 fallback decoding.
+  if (
+    'data' in msg &&
+    msg.headers?.get('Content-Type')?.split(';', 1)[0].trim().toLowerCase() ===
+      'application/octet-stream'
+  ) {
+    return msg.data
+  }
+
   let data
   try {
     data = msg.json()

@@ -332,17 +332,17 @@ error messages and credential contents are deliberately excluded from logs and t
 ### Enabling tracing
 
 `@opentelemetry/api` is a peer dependency — the consumer controls the installed
-version and registers the SDK. If no provider is registered all telemetry calls
-become no-ops. Minimal setup:
+version (1.10+) and registers the SDK. If no provider is registered all telemetry calls
+become no-ops. Minimal setup with OpenTelemetry 3 (Node.js 22.15+):
 
 ```ts
 import { trace, propagation, context } from '@opentelemetry/api'
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks'
 import { W3CTraceContextPropagator } from '@opentelemetry/core'
-import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base'
+import { TracerProvider, SimpleSpanProcessor, ConsoleSpanExporter } from '@opentelemetry/sdk-trace'
 
-const provider = new BasicTracerProvider({
-  spanProcessors: [/* your exporter */],
+const provider = new TracerProvider({
+  spanProcessors: [new SimpleSpanProcessor({ exporter: new ConsoleSpanExporter() })],
 })
 trace.setGlobalTracerProvider(provider)
 propagation.setGlobalPropagator(new W3CTraceContextPropagator())
@@ -375,7 +375,7 @@ quarto preview docs # documentation and embedded demo
 
 ### Prerequisites
 
-- Node.js 22+
+- Node.js 22.15+ (OpenTelemetry 3 development/test tooling)
 - pnpm
 
 ### Setup

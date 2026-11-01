@@ -244,7 +244,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p><code>@opentelemetry/api</code> is a peer dependency. Applications register their own tracer and meter providers; without a provider, the instrumentation is a no-op.</p>
+<p><code>@opentelemetry/api</code> 1.10+ is a peer dependency. The OpenTelemetry 3 SDK used for development and tests requires Node.js 22.15+. Applications register their own tracer and meter providers; without a provider, the instrumentation is a no-op.</p>
 <p>Subject operations emit <code>xstate.nats.subscribe</code>, <code>xstate.nats.message</code>, <code>xstate.nats.publish</code>, and <code>xstate.nats.request</code> spans. NATS reconnect events emit <code>xstate.nats.reconnect</code>; KV watches emit <code>xstate.nats.kv.watch</code> and <code>xstate.nats.kv.entry</code>. Publish/request operations inject trace context into NATS headers; received messages extract it so traces can cross application boundaries.</p>
 <section id="lifecycle-diagnostics" class="level2">
 <h2 class="anchored" data-anchor-id="lifecycle-diagnostics">Lifecycle diagnostics</h2>

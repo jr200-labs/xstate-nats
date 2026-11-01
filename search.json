@@ -37,7 +37,7 @@
     "href": "observability.html",
     "title": "Observability",
     "section": "",
-    "text": "@opentelemetry/api is a peer dependency. Applications register their own tracer and meter providers; without a provider, the instrumentation is a no-op.\nSubject operations emit xstate.nats.subscribe, xstate.nats.message, xstate.nats.publish, and xstate.nats.request spans. NATS reconnect events emit xstate.nats.reconnect; KV watches emit xstate.nats.kv.watch and xstate.nats.kv.entry. Publish/request operations inject trace context into NATS headers; received messages extract it so traces can cross application boundaries.",
+    "text": "@opentelemetry/api 1.10+ is a peer dependency. The OpenTelemetry 3 SDK used for development and tests requires Node.js 22.15+. Applications register their own tracer and meter providers; without a provider, the instrumentation is a no-op.\nSubject operations emit xstate.nats.subscribe, xstate.nats.message, xstate.nats.publish, and xstate.nats.request spans. NATS reconnect events emit xstate.nats.reconnect; KV watches emit xstate.nats.kv.watch and xstate.nats.kv.entry. Publish/request operations inject trace context into NATS headers; received messages extract it so traces can cross application boundaries.",
     "crumbs": [
       "Overview",
       "Observability"
@@ -187,7 +187,7 @@
     "href": "getting-started.html#build-the-documentation",
     "title": "Getting started",
     "section": "Build the documentation",
-    "text": "Build the documentation\nUse Node.js 22.12+ and the pnpm version in package.json. Install Quarto.\npnpm install --frozen-lockfile\npnpm demo:dev              # browser demo at http://localhost:3001\nquarto preview docs        # complete documentation site\nquarto render docs         # static output in docs/_site\nQuarto’s pre-render hook installs locked dependencies and builds the demo. Its relative asset paths work both locally and under the GitHub Pages project path. The Documentation workflow renders a preview on pull requests and publishes through the shared Quarto workflow after changes reach master.",
+    "text": "Build the documentation\nUse Node.js 22.15+ and the pnpm version in package.json. Install Quarto.\npnpm install --frozen-lockfile\npnpm demo:dev              # browser demo at http://localhost:3001\nquarto preview docs        # complete documentation site\nquarto render docs         # static output in docs/_site\nQuarto’s pre-render hook installs locked dependencies and builds the demo. Its relative asset paths work both locally and under the GitHub Pages project path. The Documentation workflow renders a preview on pull requests and publishes through the shared Quarto workflow after changes reach master.",
     "crumbs": [
       "Overview",
       "Getting started"

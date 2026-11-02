@@ -24,6 +24,24 @@ describe('parseNatsResult', () => {
     expect(parseNatsResult(error)).toBe(error)
   })
 
+  it('preserves octet-stream reply bytes without JSON or UTF-8 decoding', () => {
+    const data = new Uint8Array([0, 255, 128, 17, 0])
+    const msg = {
+      data,
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === 'content-type' ? 'application/octet-stream' : '',
+      },
+      json: vi.fn(() => {
+        throw new Error('not JSON')
+      }),
+      string: vi.fn(() => 'corrupted'),
+    } as any
+    expect(parseNatsResult(msg)).toBe(data)
+    expect(msg.json).not.toHaveBeenCalled()
+    expect(msg.string).not.toHaveBeenCalled()
+  })
+
   it('should parse JSON message', () => {
     const data = { foo: 'bar', num: 42 }
     const msg = {

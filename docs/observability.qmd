@@ -2,7 +2,7 @@
 title: Observability
 ---
 
-`@opentelemetry/api` is a peer dependency. Applications register their own tracer and meter providers; without a provider, the instrumentation is a no-op.
+`@opentelemetry/api` 1.10+ is a peer dependency. The OpenTelemetry 3 SDK used for development and tests requires Node.js 22.15+. Applications register their own tracer and meter providers; without a provider, the instrumentation is a no-op.
 
 Subject operations emit `xstate.nats.subscribe`, `xstate.nats.message`, `xstate.nats.publish`, and `xstate.nats.request` spans. NATS reconnect events emit `xstate.nats.reconnect`; KV watches emit `xstate.nats.kv.watch` and `xstate.nats.kv.entry`. Publish/request operations inject trace context into NATS headers; received messages extract it so traces can cross application boundaries.
 

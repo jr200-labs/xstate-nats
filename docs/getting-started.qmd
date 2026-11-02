@@ -50,7 +50,7 @@ actor.send({ type: 'CONNECT' })
 
 ## Build the documentation
 
-Use Node.js 22.12+ and the pnpm version in `package.json`. Install [Quarto](https://quarto.org/docs/get-started/).
+Use Node.js 22.15+ and the pnpm version in `package.json`. Install [Quarto](https://quarto.org/docs/get-started/).
 
 ```bash
 pnpm install --frozen-lockfile

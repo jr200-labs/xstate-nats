@@ -16,12 +16,12 @@ permissions:
 jobs:
   check:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.RUNNER_PROFILES)[vars.RUNNER_PROFILE].default }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '26.13.0'
       - uses: quarto-dev/quarto-actions/setup@v2.2.0
       - run: quarto render docs
       - run: npx --yes "$(node -p 'require("./package.json").packageManager')" run demo:test
@@ -37,7 +37,7 @@ jobs:
       - name: Stop test broker
         if: always()
         run: docker rm -f demo-nats || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: documentation-preview
           path: docs/_site
@@ -50,4 +50,4 @@ jobs:
     with:
       checkout-ref: ${{ github.sha }}
       site-path: docs
-      runner: ubuntu-latest
+      runner: ${{ fromJSON(vars.RUNNER_PROFILES)[vars.RUNNER_PROFILE].default }}

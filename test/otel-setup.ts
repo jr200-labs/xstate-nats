@@ -7,29 +7,25 @@
 import { context, propagation, trace } from '@opentelemetry/api'
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks'
 import { W3CTraceContextPropagator } from '@opentelemetry/core'
-import {
-  BasicTracerProvider,
-  InMemorySpanExporter,
-  SimpleSpanProcessor,
-} from '@opentelemetry/sdk-trace-base'
+import { TracerProvider, InMemorySpanExporter, SimpleSpanProcessor } from '@opentelemetry/sdk-trace'
 
 export interface OtelTestHarness {
   exporter: InMemorySpanExporter
-  provider: BasicTracerProvider
+  provider: TracerProvider
   /** Drop buffered spans without tearing down the provider. */
   reset: () => void
   /** Unregister provider + propagator. Call in afterEach. */
   teardown: () => void
 }
 
-// sdk-trace-base v2 removed `provider.register()`; wire up the global tracer
-// provider, propagator, and context manager directly through the API package.
+// sdk-trace v3 replaces sdk-trace-base and exports TracerProvider. Wire up
+// the provider, propagator, and context manager directly through the API.
 // Without the context manager, `startActiveSpan` would run the callback but
 // never attach the span to `context.active()` — which breaks propagation.
 export function setupInMemoryTracer(): OtelTestHarness {
   const exporter = new InMemorySpanExporter()
-  const provider = new BasicTracerProvider({
-    spanProcessors: [new SimpleSpanProcessor(exporter)],
+  const provider = new TracerProvider({
+    spanProcessors: [new SimpleSpanProcessor({ exporter })],
   })
   const ctxMgr = new AsyncLocalStorageContextManager()
   ctxMgr.enable()

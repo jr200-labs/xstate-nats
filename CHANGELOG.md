@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.10.0](https://github.com/jr200-labs/xstate-nats/compare/v0.9.25...v0.10.0) (2026-11-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps:** requires @opentelemetry/api ^1.10.0; OpenTelemetry 3 development and test tooling requires Node.js 22.15 or newer.
+
+### Features
+
+* **deps:** update github-actions (major) ([5c0f3e5](https://github.com/jr200-labs/xstate-nats/commit/5c0f3e580aaf3ad96688a680abda537b49b4bb11))
+* **nats:** preserve octet-stream response bytes ([#147](https://github.com/jr200-labs/xstate-nats/issues/147)) ([4f73626](https://github.com/jr200-labs/xstate-nats/commit/4f73626f4dc81efaf3241ad4b5da938ac9513270))
+
+
+### Bug Fixes
+
+* **ci:** retain documentation artifacts for five days ([#153](https://github.com/jr200-labs/xstate-nats/issues/153)) ([6deaac2](https://github.com/jr200-labs/xstate-nats/commit/6deaac274508741fa12fd560e63fe288594f891e))
+* **ci:** use configured runners for documentation ([#152](https://github.com/jr200-labs/xstate-nats/issues/152)) ([95bec89](https://github.com/jr200-labs/xstate-nats/commit/95bec89479a0d8b508b35a655a161dca6e53829a))
+* **deps:** reconcile updates and migrate OpenTelemetry 3 ([#149](https://github.com/jr200-labs/xstate-nats/issues/149)) ([746d71e](https://github.com/jr200-labs/xstate-nats/commit/746d71e9ada35ec12b5f8f8e5ff8def8a4a36b65))
+* **deps:** update all non-major dependencies ([c70aea2](https://github.com/jr200-labs/xstate-nats/commit/c70aea231181caa225f30549e79c5f4a35a561a5))
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.75 ([9b6489c](https://github.com/jr200-labs/xstate-nats/commit/9b6489c4f081501203cdd7f81f27a6e2f6bff697))
+* **deps:** update github-actions ([a6e8af7](https://github.com/jr200-labs/xstate-nats/commit/a6e8af7872d92448f2007be6d89de772976d7bf2))
+* **deps:** update github-actions ([5d3ef24](https://github.com/jr200-labs/xstate-nats/commit/5d3ef24f8b228365188f73ea03f6c3709a6b538d))
+
 ## [0.9.25](https://github.com/jr200-labs/xstate-nats/compare/v0.9.24...v0.9.25) (2026-10-05)
 
 

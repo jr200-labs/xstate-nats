@@ -41,6 +41,7 @@ jobs:
         with:
           name: documentation-preview
           path: docs/_site
+          retention-days: 5
   publish:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
     permissions:

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.3](https://github.com/jr200-labs/xstate-nats/compare/v0.10.2...v0.10.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* **deps:** update dependency jr200-labs/github-action-templates to shared-v0.1.95 ([#158](https://github.com/jr200-labs/xstate-nats/issues/158)) ([118b1e1](https://github.com/jr200-labs/xstate-nats/commit/118b1e1ac988931ac0088bdfd7a58d148143af64))
+* **deps:** update peter-evans/create-pull-request action to v8.1.2 ([#160](https://github.com/jr200-labs/xstate-nats/issues/160)) ([d62c2f8](https://github.com/jr200-labs/xstate-nats/commit/d62c2f8e6c7e54d31aec6af87579db4274f38c44))
+
 ## [0.10.2](https://github.com/jr200-labs/xstate-nats/compare/v0.10.1...v0.10.2) (2026-11-04)
 
 
